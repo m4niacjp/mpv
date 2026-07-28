@@ -814,6 +814,8 @@ static void handle_update_cache(struct MPContext *mpctx)
 
     if (s.eof && !busy)
         prefetch_next(mpctx);
+    if (opts->prefetch_open_on_cache && s.cache_full)
+        prefetch_next(mpctx);
 
     if (force_update) {
         mpctx->cache_update_pts = mpctx->playback_pts;

@@ -43,7 +43,7 @@ struct demux_ctrl_ts_info {
 };
 
 struct demux_reader_state {
-    bool eof, underrun, idle;
+    bool eof, underrun, idle, cache_full;
     bool bof_cached, eof_cached;
     struct demux_ctrl_ts_info ts_info;
     struct demux_ctrl_ts_info ts_per_stream[STREAM_TYPE_COUNT];
@@ -320,6 +320,8 @@ void demux_start_thread(struct demuxer *demuxer);
 void demux_stop_thread(struct demuxer *demuxer);
 void demux_set_wakeup_cb(struct demuxer *demuxer, void (*cb)(void *ctx), void *ctx);
 void demux_start_prefetch(struct demuxer *demuxer);
+void demux_set_prefetch_limits(struct demuxer *demuxer, double secs,
+                               int64_t bytes);
 
 bool demux_cancel_test(struct demuxer *demuxer);
 bool demux_read_interrupted(struct demuxer *demuxer);

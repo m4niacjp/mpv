@@ -1248,6 +1248,8 @@ static MP_THREAD_VOID open_demux_thread(void *ctx)
                 demuxer_select_track(demux, sh, MP_NOPTS_VALUE, true);
             }
 
+            demux_set_prefetch_limits(demux, mpctx->open_prefetch_secs,
+                                      mpctx->open_prefetch_bytes);
             demux_set_wakeup_cb(demux, wakeup_demux, mpctx);
             demux_start_thread(demux);
             demux_start_prefetch(demux);
@@ -1289,7 +1291,8 @@ static void cancel_open(struct MPContext *mpctx)
 
 // Setup all the field to open this url, and make sure a thread is running.
 static void start_open(struct MPContext *mpctx, char *url, int url_flags,
-                       bool for_prefetch)
+                       bool for_prefetch, double prefetch_secs,
+                       int64_t prefetch_bytes)
 {
     cancel_open(mpctx);
 
@@ -1303,6 +1306,8 @@ static void start_open(struct MPContext *mpctx, char *url, int url_flags,
     mpctx->open_format = talloc_strdup(NULL, mpctx->opts->demuxer_name);
     mpctx->open_url_flags = url_flags;
     mpctx->open_for_prefetch = for_prefetch && mpctx->opts->demuxer_thread;
+    mpctx->open_prefetch_secs = prefetch_secs;
+    mpctx->open_prefetch_bytes = prefetch_bytes;
     mpctx->demuxer_changed = false;
 
     if (mp_thread_create(&mpctx->open_thread, open_demux_thread, mpctx)) {
@@ -1345,7 +1350,7 @@ static void open_demux_reentrant(struct MPContext *mpctx)
     }
 
     if (!mpctx->open_active)
-        start_open(mpctx, url, mpctx->playing->stream_flags, false);
+        start_open(mpctx, url, mpctx->playing->stream_flags, false, 0, 0);
 
     // If thread failed to start, cancel the playback
     if (!mpctx->open_active)
@@ -1364,6 +1369,10 @@ static void open_demux_reentrant(struct MPContext *mpctx)
     if (mpctx->open_res_demuxer) {
         mpctx->demuxer = mpctx->open_res_demuxer;
         mpctx->open_res_demuxer = NULL;
+        // The prefetch cache limits applied in open_demux_thread() are meant
+        // for background prefetching only. Release them now that this demuxer
+        // is the one being played, so it uses the normal cache settings.
+        demux_set_prefetch_limits(mpctx->demuxer, 0, 0);
         mp_cancel_set_parent(mpctx->demuxer->cancel, mpctx->playback_abort);
     } else {
         mpctx->error_playing = mpctx->open_res_error;
@@ -1381,7 +1390,9 @@ void prefetch_next(struct MPContext *mpctx)
     struct playlist_entry *new_entry = mp_next_file(mpctx, +1, false, false);
     if (new_entry && new_entry->filename) {
         MP_VERBOSE(mpctx, "Prefetching: %s\n", new_entry->filename);
-        start_open(mpctx, new_entry->filename, new_entry->stream_flags, true);
+        start_open(mpctx, new_entry->filename, new_entry->stream_flags, true,
+                   mpctx->opts->prefetch_open_secs,
+                   mpctx->opts->prefetch_open_bytes);
     }
 }
 

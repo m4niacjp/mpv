@@ -1,0 +1,8 @@
+add `--prefetch-playlist-on-cache`, `--prefetch-playlist-cache-secs`,
+and `--prefetch-playlist-cache-bytes` options
+
+`--prefetch-playlist=yes` still prefetches the next playlist entry when the
+current URL is fully read. `--prefetch-playlist-on-cache=yes` makes that
+prefetch start earlier, after the current entry reaches its effective
+demuxer/cache readahead target or byte limit. The cache options cap how much
+the prefetched entry reads ahead; 0 keeps the normal demuxer/cache settings.

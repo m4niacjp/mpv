@@ -211,6 +211,8 @@ struct demux_internal {
     bool hyst_active;
     size_t max_bytes;
     size_t max_bytes_bw;
+    double prefetch_limit_secs;
+    size_t prefetch_limit_bytes;
     bool seekable_cache;
     bool using_network_cache_opts;
     char *record_filename;
@@ -457,6 +459,7 @@ static void switch_to_fresh_cache_range(struct demux_internal *in);
 static void demuxer_sort_chapters(demuxer_t *demuxer);
 static MP_THREAD_VOID demux_thread(void *pctx);
 static void update_cache(struct demux_internal *in);
+static void update_opts(struct demuxer *demuxer);
 static void add_packet_locked(struct sh_stream *stream, demux_packet_t *dp);
 static struct demux_packet *advance_reader_head(struct demux_stream *ds);
 static bool queue_seek(struct demux_internal *in, double seek_pts, int flags,
@@ -1243,6 +1246,22 @@ void demux_start_prefetch(struct demuxer *demuxer)
 
     mp_mutex_lock(&in->lock);
     in->reading = true;
+    mp_cond_signal(&in->wakeup);
+    mp_mutex_unlock(&in->lock);
+}
+
+void demux_set_prefetch_limits(struct demuxer *demuxer, double secs,
+                               int64_t bytes)
+{
+    struct demux_internal *in = demuxer->in;
+    mp_assert(demuxer == in->d_user);
+
+    mp_mutex_lock(&in->lock);
+    in->prefetch_limit_secs = secs;
+    in->prefetch_limit_bytes = bytes > 0 ? bytes : 0;
+    update_opts(demuxer);
+    // Raising the limits must be able to restart a demuxer that already went
+    // idle at the old (lower) target.
     mp_cond_signal(&in->wakeup);
     mp_mutex_unlock(&in->lock);
 }
@@ -2575,6 +2594,10 @@ static void update_opts(struct demuxer *demuxer)
         if (seekable < 0)
             seekable = 1;
     }
+    if (in->prefetch_limit_secs > 0)
+        in->min_secs = in->prefetch_limit_secs;
+    if (in->prefetch_limit_bytes > 0)
+        in->max_bytes = in->prefetch_limit_bytes;
     in->seekable_cache = seekable == 1;
     in->using_network_cache_opts = is_streaming && use_cache;
 
@@ -4714,6 +4737,9 @@ void demux_get_reader_state(struct demuxer *demuxer, struct demux_reader_state *
         ots->duration = ots->end - ots->reader;
     if (in->seeking || !any_packets)
         ots->duration = 0;
+    r->cache_full = in->can_cache && !r->eof && r->idle &&
+                    ((in->min_secs > 0 && ots->duration >= in->min_secs) ||
+                     (in->max_bytes > 0 && r->fw_bytes >= (int64_t)in->max_bytes));
     for (int n = 0; n < MPMIN(in->num_ranges, MAX_SEEK_RANGES); n++) {
         struct demux_cached_range *range = in->ranges[n];
         if (range->seek_start != MP_NOPTS_VALUE) {

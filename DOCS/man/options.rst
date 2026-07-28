@@ -4409,6 +4409,24 @@ Demuxer
     can't predict whether you go backwards in the playlist, and assumes you
     won't edit the playlist.
 
+``--prefetch-playlist-on-cache=<yes|no>``
+    Start ``--prefetch-playlist`` as soon as the current entry has reached the
+    configured demuxer cache target, instead of waiting until the current URL is
+    fully read (default: no). The trigger is based on the current entry reaching
+    its effective ``--demuxer-readahead-secs``/``--cache-secs`` target or
+    ``--demuxer-max-bytes`` limit.
+
+    This may open and read from the next playlist entry while the current entry
+    is still playing and may increase disk or network I/O.
+
+``--prefetch-playlist-cache-secs=<seconds>``
+    Override how many seconds the prefetched playlist entry should read ahead.
+    A value of 0 uses the normal demuxer/cache settings (default: 0).
+
+``--prefetch-playlist-cache-bytes=<bytesize>``
+    Override ``--demuxer-max-bytes`` for the prefetched playlist entry. A value
+    of 0 uses the normal demuxer/cache settings (default: 0).
+
 ``--force-seekable=<yes|no>``
     If the player thinks that the media is not seekable (e.g. playing from a
     pipe, or it's an http stream with a server that doesn't support range
