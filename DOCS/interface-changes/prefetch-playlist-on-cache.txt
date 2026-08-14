@@ -19,5 +19,6 @@ immediately starts the configured future set without waiting for the current
 URL to reach EOF or its cache/readahead target. The cache caps remain per
 future entry, and simultaneous reads can compete for disk or network I/O.
 
-Playlist-move, shuffle, remove, and clear retarget `--prefetch-playlist` to
-the new next entries instead of retaining a stale previous next.
+Playlist-move, shuffle, unshuffle, remove, and clear retarget
+`--prefetch-playlist` to the new next entries instead of retaining a stale
+previous next.

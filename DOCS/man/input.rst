@@ -656,13 +656,16 @@ Playlist Manipulation
     ignored for all other actions. This argument was added in mpv 0.38.0.
 
 ``playlist-clear``
-    Clear the playlist, except the currently played file.
+    Clear the playlist, except the currently played file. If
+    ``--prefetch-playlist=yes``, this drops retained future entries. See
+    ``--prefetch-playlist``.
 
 ``playlist-remove <index>``
     Remove the playlist entry at the given index. Index values start counting
     with 0. The special value ``current`` removes the current entry. Note that
     removing the current entry also stops playback and starts playing the next
-    entry.
+    entry. If ``--prefetch-playlist=yes``, this retargets prefetch to the new
+    next entries. See ``--prefetch-playlist``.
 
 ``playlist-move <index1> <index2>``
     Move the playlist entry at index1, so that it takes the place of the
@@ -683,7 +686,8 @@ Playlist Manipulation
     Attempt to revert the previous ``playlist-shuffle`` command. This works
     only once (multiple successive ``playlist-unshuffle`` commands do nothing).
     May not work correctly if new recursive playlists have been opened since
-    a ``playlist-shuffle`` command.
+    a ``playlist-shuffle`` command. If ``--prefetch-playlist=yes``, this
+    retargets prefetch to the new next entries.
 
 Track Manipulation
 ~~~~~~~~~~~~~~~~~~
