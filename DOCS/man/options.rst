@@ -4407,11 +4407,11 @@ Demuxer
     item by mpv. HLS prefetching depends on the demuxer cache settings and is
     on by default.
 
-    Playlist edits (``playlist-move``, ``playlist-shuffle``,
-    ``playlist-unshuffle``, ``playlist-remove``, ``playlist-clear``)
-    retarget prefetch to the new next entries and drop retained demuxers
-    that left that window. This can still make wrong prefetching decisions
-    when you go backwards in the playlist.
+    Playlist edits (``playlist-move``, ``playlist-reorder``,
+    ``playlist-shuffle``, ``playlist-unshuffle``, ``playlist-remove``,
+    ``playlist-clear``) retarget prefetch to the new next entries and drop
+    retained demuxers that left that window. This can still make wrong
+    prefetching decisions when you go backwards in the playlist.
 
 ``--prefetch-playlist-max=<N>``
     Limit how many future playlist entries ``--prefetch-playlist=yes`` retains

@@ -103,7 +103,9 @@ that Roaming Lua or Lua-wired configuration inline in the parent task.
 
 This routing does not apply to built-in `player/lua/` or normal upstream C/Meson
 work. See [.cursor/rules/mpv-lua-scripter.mdc](.cursor/rules/mpv-lua-scripter.mdc)
-for the scope and the scripter's output contract.
+for the scope and the scripter's output contract. Roaming `*.lua` client names
+replace non-alphanumeric characters with `_` (`playlist-sort.lua` is
+`playlist_sort` for `script-message-to`).
 
 For local playlist-prefetch testing, the Roaming `mpv.conf` may set
 `prefetch-playlist-on-cache=yes`, `prefetch-playlist-cache-secs=<seconds>`,
@@ -111,9 +113,12 @@ For local playlist-prefetch testing, the Roaming `mpv.conf` may set
 `prefetch-playlist-realtime=yes`, `prefetch-playlist-start-secs`, and
 `prefetch-playlist-start-bytes`. Next-1 fills the start window first; extra
 `prefetch-playlist-max` entries wait until that window is full (both start
-options 0 = immediate full-cache fill). Playlist-move, shuffle, unshuffle,
-remove, and clear retarget prefetch to the new next entries instead of
-keeping a stale previous next. `--autocreate-playlist=filter|same` opens a
-local regular file first and scans siblings on a worker; the core splices
+options 0 = immediate full-cache fill). Playlist-move, playlist-reorder,
+shuffle, unshuffle, remove, and clear retarget prefetch to the new next
+entries instead of keeping a stale previous next. `playlist-reorder` is a
+one-shot permutation by current 0-based indexes (does not restart the current
+file; one prefetch retarget). Use it instead of many `playlist-move` calls
+when sorting a large autocreate playlist. `--autocreate-playlist=filter|same`
+opens a local regular file first and scans siblings on a worker; the core splices
 remaining entries in bulk (reuses the worker playlist). The playlist may
 grow after `file-loaded`.

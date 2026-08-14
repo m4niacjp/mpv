@@ -28,6 +28,6 @@ to fill the full prefetch cache caps immediately. Prefetch selects audio and
 video tracks only; subtitle and attached-image tracks are left to normal
 selection on adopt.
 
-Playlist-move, shuffle, unshuffle, remove, and clear retarget
+Playlist-move, playlist-reorder, shuffle, unshuffle, remove, and clear retarget
 `--prefetch-playlist` to the new next entries instead of retaining a stale
 previous next.

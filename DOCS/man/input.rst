@@ -677,6 +677,17 @@ Playlist Manipulation
     If ``--prefetch-playlist=yes``, this retargets prefetch to the new next
     entries. See ``--prefetch-playlist``.
 
+``playlist-reorder <index1>[,<index2>...]``
+    Replace the playlist order in one step. ``order`` is a comma- or
+    space-separated list of current 0-based indexes; the n-th value is the
+    entry that should occupy new index n. The list must be a permutation of
+    ``0..playlist-count-1``. Playback of the current file is not restarted.
+    If ``--prefetch-playlist=yes``, prefetch is retargeted once after the
+    reorder. See ``--prefetch-playlist``.
+
+    This is meant for scripts that need to sort a large playlist without
+    issuing one ``playlist-move`` (and prefetch retarget) per entry.
+
 ``playlist-shuffle``
     Shuffle the playlist. This is similar to what is done on start if the
     ``--shuffle`` option is used. If ``--prefetch-playlist=yes``, this

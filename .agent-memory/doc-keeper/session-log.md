@@ -30,3 +30,26 @@ Verified after merge `b42cf71a7fb7a96e2926804d1e3b4d147ad8da25` (`Merge origin/m
 Changed: none in `AGENTS.md` / `DOCS/local-workflow.md`. This log only.
 
 Pending: none.
+
+## 2026-08-15 — playlist-reorder command
+
+Documented one-shot `playlist-reorder` (permutation by current 0-based indexes;
+no current-file restart; one `MP_EVENT_CHANGE_PLAYLIST` + one `prefetch_next()`).
+
+Changed:
+- `AGENTS.md` local prefetch testing: add `playlist-reorder` to retarget list;
+  note it replaces many `playlist-move` calls for large autocreate sorts.
+- `DOCS/local-workflow.md` playlist-edit retarget list: add `playlist-reorder`.
+- `DOCS/interface-changes/prefetch-playlist-on-cache.txt`: same retarget list.
+
+Left unchanged (already current):
+- `DOCS/man/input.rst` (`playlist-reorder` command)
+- `DOCS/man/options.rst` (prefetch playlist-edit list includes `playlist-reorder`)
+- `DOCS/interface-changes/playlist-reorder.txt`
+
+Skipped:
+- No `DOCS/Internal.md` created.
+- Did not edit Roaming mpv config.
+- Did not rewrite `DOCS/references/libraries/mpv.md` (doc-search owned).
+
+Pending: none for this change.

@@ -98,6 +98,10 @@ void playlist_clear_except_current(struct playlist *pl);
 
 void playlist_move(struct playlist *pl, struct playlist_entry *entry,
                    struct playlist_entry *at);
+// Place entries in the given order. `order[n]` is the old index that should
+// occupy new index n. `count` must equal num_entries. Returns false if the
+// array is not a permutation of 0..count-1.
+bool playlist_reorder(struct playlist *pl, const int *order, int count);
 
 void playlist_append_file(struct playlist *pl, const char *filename);
 void playlist_populate_playlist_path(struct playlist *pl, const char *path);

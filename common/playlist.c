@@ -164,6 +164,38 @@ void playlist_move(struct playlist *pl, struct playlist_entry *entry,
                                 MPMAX(index + 1, old_index + 1));
 }
 
+bool playlist_reorder(struct playlist *pl, const int *order, int count)
+{
+    if (!pl || count != pl->num_entries || (count && !order))
+        return false;
+    if (count <= 1)
+        return true;
+
+    char *seen = talloc_zero_array(NULL, char, count);
+    struct playlist_entry **tmp =
+        talloc_array(NULL, struct playlist_entry *, count);
+    bool ok = true;
+
+    for (int n = 0; n < count; n++) {
+        int idx = order[n];
+        if (idx < 0 || idx >= count || seen[idx]) {
+            ok = false;
+            break;
+        }
+        seen[idx] = 1;
+        tmp[n] = pl->entries[idx];
+    }
+
+    if (ok) {
+        memcpy(pl->entries, tmp, count * sizeof(tmp[0]));
+        playlist_update_indexes(pl, 0, -1);
+    }
+
+    talloc_free(seen);
+    talloc_free(tmp);
+    return ok;
+}
+
 void playlist_append_file(struct playlist *pl, const char *filename)
 {
     playlist_insert_at(pl, playlist_entry_new(filename), NULL);

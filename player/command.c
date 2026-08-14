@@ -6562,6 +6562,50 @@ static void cmd_playlist_move(void *p)
     prefetch_next(mpctx);
 }
 
+static void cmd_playlist_reorder(void *p)
+{
+    struct mp_cmd_ctx *cmd = p;
+    struct MPContext *mpctx = cmd->mpctx;
+    const char *spec = cmd->args[0].v.s;
+    int expect = mpctx->playlist->num_entries;
+    int *order = NULL;
+    int norder = 0;
+    const char *s = spec ? spec : "";
+
+    while (*s) {
+        while (*s == ',' || *s == ' ' || *s == '\t')
+            s++;
+        if (!*s)
+            break;
+        char *end = NULL;
+        long v = strtol(s, &end, 10);
+        if (end == s || v < 0 || v >= expect) {
+            talloc_free(order);
+            cmd->success = false;
+            return;
+        }
+        MP_TARRAY_APPEND(NULL, order, norder, (int)v);
+        s = end;
+    }
+
+    if (norder != expect) {
+        talloc_free(order);
+        cmd->success = false;
+        return;
+    }
+
+    bool ok = playlist_reorder(mpctx->playlist, order, norder);
+    talloc_free(order);
+    if (!ok) {
+        cmd->success = false;
+        return;
+    }
+
+    mp_notify(mpctx, MP_EVENT_CHANGE_PLAYLIST, NULL);
+    mp_wakeup_core(mpctx);
+    prefetch_next(mpctx);
+}
+
 static void cmd_playlist_shuffle(void *p)
 {
     struct mp_cmd_ctx *cmd = p;
@@ -7774,6 +7818,8 @@ const struct mp_cmd_def mp_cmds[] = {
             M_RANGE(0, INT_MAX)}, }},
     { "playlist-move", cmd_playlist_move,  { {"index1", OPT_INT(v.i)},
                                              {"index2", OPT_INT(v.i)}, }},
+    { "playlist-reorder", cmd_playlist_reorder, {
+        {"order", OPT_STRING(v.s)}, }},
     { "run", cmd_run, { {"command", OPT_STRING(v.s)},
                         {"args", OPT_STRING(v.s)}, },
         .vararg = true,
