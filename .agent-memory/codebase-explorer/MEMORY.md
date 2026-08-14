@@ -1,0 +1,5 @@
+- [Environment](environment.md) — OS, shell, toolchain hints
+- [Doc locations](doc_locations.md) — where docs live for this checkout
+- [Project structure](project_structure.md) — top-level folder map
+- [Architecture notes](architecture_notes.md) — subsystem orientation
+- [Rules](rules.md) — project-specific explorer constraints
