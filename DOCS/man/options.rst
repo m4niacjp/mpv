@@ -4393,9 +4393,11 @@ Demuxer
     The default value is 0, which disables the byte-based caching hysteresis.
 
 ``--prefetch-playlist=<yes|no>``
-    Prefetch next playlist entry while playback of the current entry is ending
-    (default: no). This merely opens the URL of the next playlist entry as soon
-    as the current URL is fully read.
+    Prefetch future playlist entries while playback of the current entry is
+    ending (default: no). This merely opens their URLs one at a time as soon as
+    the configured prefetch trigger is reached. At most
+    ``--prefetch-playlist-max`` entries are retained; its default of 1
+    preserves prefetching only the next entry.
 
     This does **not** work with URLs resolved by the ``youtube-dl`` wrapper,
     and it won't.
@@ -4405,27 +4407,51 @@ Demuxer
     item by mpv. HLS prefetching depends on the demuxer cache settings and is
     on by default.
 
-    This can occasionally make wrong prefetching decisions. For example, it
-    can't predict whether you go backwards in the playlist, and assumes you
-    won't edit the playlist.
+    Playlist edits (``playlist-move``, ``playlist-shuffle``,
+    ``playlist-remove``, ``playlist-clear``) retarget prefetch to the new
+    next entries and drop retained demuxers that left that window. This can
+    still make wrong prefetching decisions when you go backwards in the
+    playlist.
+
+``--prefetch-playlist-max=<N>``
+    Limit how many future playlist entries ``--prefetch-playlist=yes`` retains
+    prefetched at once (default: 1). The value must be an integer from 1 to
+    ``INT_MAX``. The default preserves the previous behavior of prefetching
+    only the next entry.
+
+    Entries are opened one at a time, but retained prefetched demuxers can fill
+    their bounded caches concurrently. ``--prefetch-playlist-cache-secs`` and
+    ``--prefetch-playlist-cache-bytes`` apply to each prefetched entry, so a
+    higher value can multiply disk or network I/O and memory use.
 
 ``--prefetch-playlist-on-cache=<yes|no>``
-    Start ``--prefetch-playlist`` as soon as the current entry has reached the
-    configured demuxer cache target, instead of waiting until the current URL is
-    fully read (default: no). The trigger is based on the current entry reaching
-    its effective ``--demuxer-readahead-secs``/``--cache-secs`` target or
+    Start ``--prefetch-playlist`` for its configured set of future entries as
+    soon as the current entry has reached the configured demuxer cache target,
+    instead of waiting until the current URL is fully read (default: no). The
+    trigger is based on the current entry reaching its effective
+    ``--demuxer-readahead-secs``/``--cache-secs`` target or
     ``--demuxer-max-bytes`` limit.
 
-    This may open and read from the next playlist entry while the current entry
+    This may open and read from future playlist entries while the current entry
     is still playing and may increase disk or network I/O.
 
+``--prefetch-playlist-realtime=<yes|no>``
+    Immediately start prefetching the configured set of future playlist entries
+    (default: no). This requires ``--prefetch-playlist=yes`` and does not wait
+    for the current URL to be fully read or to reach its cache/readahead target.
+
+    ``--prefetch-playlist-cache-secs`` and
+    ``--prefetch-playlist-cache-bytes`` still apply to each future entry.
+    Reading them while the current entry is playing can compete for disk or
+    network I/O.
+
 ``--prefetch-playlist-cache-secs=<seconds>``
-    Override how many seconds the prefetched playlist entry should read ahead.
+    Override how many seconds each prefetched playlist entry should read ahead.
     A value of 0 uses the normal demuxer/cache settings (default: 0).
 
 ``--prefetch-playlist-cache-bytes=<bytesize>``
-    Override ``--demuxer-max-bytes`` for the prefetched playlist entry. A value
-    of 0 uses the normal demuxer/cache settings (default: 0).
+    Override ``--demuxer-max-bytes`` for each prefetched playlist entry. A
+    value of 0 uses the normal demuxer/cache settings (default: 0).
 
 ``--force-seekable=<yes|no>``
     If the player thinks that the media is not seekable (e.g. playing from a

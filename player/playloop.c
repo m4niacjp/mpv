@@ -717,6 +717,9 @@ static void handle_update_cache(struct MPContext *mpctx)
         return;
     }
 
+    if (opts->prefetch_open_realtime)
+        prefetch_next(mpctx);
+
     double now = mp_time_sec();
 
     struct demux_reader_state s;

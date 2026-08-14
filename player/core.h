@@ -18,7 +18,6 @@
 #ifndef MPLAYER_MP_CORE_H
 #define MPLAYER_MP_CORE_H
 
-#include <stdatomic.h>
 #include <stdbool.h>
 
 #include "audio/aframe.h"
@@ -462,24 +461,10 @@ typedef struct MPContext {
     int num_abort_list;
     bool abort_all; // during final termination
 
-    // --- Owned by MPContext
-    mp_thread open_thread;
-    bool open_active; // open_thread is a valid thread handle, all setup
-    atomic_bool open_done;
-    // --- All fields below are immutable while open_active is true.
-    //     Otherwise, they're owned by MPContext.
-    struct mp_cancel *open_cancel;
-    char *open_url;
-    char *open_format;
-    int open_url_flags;
-    bool open_for_prefetch;
-    double open_prefetch_secs;
-    int64_t open_prefetch_bytes;
+    struct async_open *open;
+    struct prefetched_file *prefetched_files;
+    int num_prefetched_files;
     bool demuxer_changed;
-    // --- All fields below are owned by open_thread, unless open_done was set
-    //     to true.
-    struct demuxer *open_res_demuxer;
-    int open_res_error;
 
     struct mp_als *als_state; // lazily initialized on first use
 } MPContext;
@@ -569,6 +554,8 @@ void autoload_external_files(struct MPContext *mpctx, struct mp_cancel *cancel);
 struct track *select_default_track(struct MPContext *mpctx, int order,
                                    enum stream_type type);
 void prefetch_next(struct MPContext *mpctx);
+void cancel_open(struct MPContext *mpctx);
+void open_demux_reentrant(struct MPContext *mpctx);
 void update_lavfi_complex(struct MPContext *mpctx);
 void update_vo_chain_el_pair(struct MPContext *mpctx);
 

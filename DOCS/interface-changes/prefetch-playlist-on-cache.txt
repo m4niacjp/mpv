@@ -1,8 +1,23 @@
 add `--prefetch-playlist-on-cache`, `--prefetch-playlist-cache-secs`,
-and `--prefetch-playlist-cache-bytes` options
+`--prefetch-playlist-cache-bytes`, `--prefetch-playlist-max`, and
+`--prefetch-playlist-realtime` options
 
-`--prefetch-playlist=yes` still prefetches the next playlist entry when the
-current URL is fully read. `--prefetch-playlist-on-cache=yes` makes that
-prefetch start earlier, after the current entry reaches its effective
-demuxer/cache readahead target or byte limit. The cache options cap how much
-the prefetched entry reads ahead; 0 keeps the normal demuxer/cache settings.
+`--prefetch-playlist=yes` prefetches future playlist entries when the current
+URL is fully read, retaining up to `--prefetch-playlist-max` entries (default:
+1). `--prefetch-playlist-on-cache=yes` makes that prefetch start earlier, after
+the current entry reaches its effective demuxer/cache readahead target or byte
+limit. The cache options cap how much each prefetched entry reads ahead; 0
+keeps the normal demuxer/cache settings.
+
+`--prefetch-playlist-max` limits how many future playlist entries are retained
+prefetched at once. It defaults to 1, preserving the previous single-next-entry
+behavior. Each retained entry can fill its bounded cache concurrently, so
+raising the limit can multiply disk or network I/O and memory use.
+
+`--prefetch-playlist-realtime=yes` requires `--prefetch-playlist=yes` and
+immediately starts the configured future set without waiting for the current
+URL to reach EOF or its cache/readahead target. The cache caps remain per
+future entry, and simultaneous reads can compete for disk or network I/O.
+
+Playlist-move, shuffle, remove, and clear retarget `--prefetch-playlist` to
+the new next entries instead of retaining a stale previous next.

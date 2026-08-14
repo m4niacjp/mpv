@@ -671,9 +671,13 @@ Playlist Manipulation
     because index2 refers to the target entry, not the index the entry
     will have after moving.)
 
+    If ``--prefetch-playlist=yes``, this retargets prefetch to the new next
+    entries. See ``--prefetch-playlist``.
+
 ``playlist-shuffle``
     Shuffle the playlist. This is similar to what is done on start if the
-    ``--shuffle`` option is used.
+    ``--shuffle`` option is used. If ``--prefetch-playlist=yes``, this
+    retargets prefetch to the new next entries.
 
 ``playlist-unshuffle``
     Attempt to revert the previous ``playlist-shuffle`` command. This works

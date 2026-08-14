@@ -6516,6 +6516,7 @@ static void cmd_playlist_clear(void *p)
     playlist_clear_except_current(mpctx->playlist);
     mp_notify(mpctx, MP_EVENT_CHANGE_PLAYLIST, NULL);
     mp_wakeup_core(mpctx);
+    prefetch_next(mpctx);
 }
 
 static void cmd_playlist_remove(void *p)
@@ -6538,6 +6539,7 @@ static void cmd_playlist_remove(void *p)
     playlist_remove(mpctx->playlist, e);
     mp_notify(mpctx, MP_EVENT_CHANGE_PLAYLIST, NULL);
     mp_wakeup_core(mpctx);
+    prefetch_next(mpctx);
 }
 
 static void cmd_playlist_move(void *p)
@@ -6556,6 +6558,7 @@ static void cmd_playlist_move(void *p)
 
     playlist_move(mpctx->playlist, e1, e2);
     mp_notify(mpctx, MP_EVENT_CHANGE_PLAYLIST, NULL);
+    mp_wakeup_core(mpctx);
 }
 
 static void cmd_playlist_shuffle(void *p)
@@ -6565,6 +6568,8 @@ static void cmd_playlist_shuffle(void *p)
 
     playlist_shuffle(mpctx->playlist);
     mp_notify(mpctx, MP_EVENT_CHANGE_PLAYLIST, NULL);
+    mp_wakeup_core(mpctx);
+    prefetch_next(mpctx);
 }
 
 static void cmd_playlist_unshuffle(void *p)
@@ -6574,6 +6579,8 @@ static void cmd_playlist_unshuffle(void *p)
 
     playlist_unshuffle(mpctx->playlist);
     mp_notify(mpctx, MP_EVENT_CHANGE_PLAYLIST, NULL);
+    mp_wakeup_core(mpctx);
+    prefetch_next(mpctx);
 }
 
 static void cmd_stop(void *p)

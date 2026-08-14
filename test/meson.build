@@ -164,6 +164,10 @@ if get_option('libmpv')
                          include_directories: incdir_public)
         test('libmpv-lifetime', exe, depends: mpvlib, suite: 'libmpv')
     endif
+
+    exe = executable('libmpv-test-prefetch', 'libmpv_test_prefetch.c',
+                     include_directories: incdir, dependencies: libmpv_dep)
+    test('libmpv-test-prefetch', exe, args: file, suite: 'libmpv')
 endif
 
 # Supported libavutil versions that work with these tests.
