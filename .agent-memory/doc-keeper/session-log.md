@@ -17,3 +17,16 @@ Skipped:
 - Did not rewrite `DOCS/references/libraries/mpv.md` (doc-search owned).
 
 Pending: none for this change.
+
+## 2026-08-15 — origin/master merge hash check
+
+Verified after merge `b42cf71a7fb7a96e2926804d1e3b4d147ad8da25` (`Merge origin/master into master`):
+
+- `origin/master` == `7b8915bc1d04c7e1b61184e00c7fbfaab1911e75` (`ra_pl: add x2bgr10/x2rgb10 special RA formats`) — matches `DOCS/local-workflow.md`.
+- Prefetch-end / local feature `72a875bd10322089d60525093a415a7cdbe52761` (`player: splice autocreate siblings in bulk`) — matches `DOCS/local-workflow.md`. Both SHAs are ancestors of `HEAD`.
+- `AGENTS.md` has no commit hashes; autocreate bulk-splice sentence already current.
+- Did not document `.git/info/exclude`; `DOCS/local-workflow.md` already says keep local build artifacts out of scope.
+
+Changed: none in `AGENTS.md` / `DOCS/local-workflow.md`. This log only.
+
+Pending: none.
