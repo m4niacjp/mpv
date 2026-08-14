@@ -60,14 +60,14 @@ git rev-parse origin/master fork/master
 Upstream `origin/master` was last verified at:
 
 ```text
-24c1cc52a36aa779010193a01d6ed13f902981f7
+7b8915bc1d04c7e1b61184e00c7fbfaab1911e75
 ```
 
 `fork/master` tracks local `master`, which is `origin/master` plus local
 prefetch commits. Committed prefetch work currently ends at:
 
 ```text
-fcf3bc76a8a3749e2a08d3708cec11b56d6f41f9
+72a875bd10322089d60525093a415a7cdbe52761
 ```
 
 That includes on-cache start, `--prefetch-playlist-max` /
