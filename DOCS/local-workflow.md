@@ -67,7 +67,7 @@ Upstream `origin/master` was last verified at:
 prefetch commits. Committed prefetch work currently ends at:
 
 ```text
-3c55dfdbbea17e65e7cbda10f9188e50e87bf5a1
+fcf3bc76a8a3749e2a08d3708cec11b56d6f41f9
 ```
 
 That includes on-cache start, `--prefetch-playlist-max` /
