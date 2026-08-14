@@ -77,7 +77,8 @@ remove, or clear, then prefetch the new next files), two-phase prefetch
 start-window options (`--prefetch-playlist-start-secs` default 10,
 `--prefetch-playlist-start-bytes` default 32MiB; both 0 = immediate
 full-cache fill), and async `--autocreate-playlist` for local regular files
-(open the media file first; sibling scan on a worker). Refresh this hash
+(open the media file first; sibling scan on a worker; core bulk-splices
+remaining entries). Refresh this hash
 from `git rev-parse` after further prefetch commits land.
 
 If the fork falls behind upstream and the local worktree is clean, fast-forward

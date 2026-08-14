@@ -114,5 +114,6 @@ For local playlist-prefetch testing, the Roaming `mpv.conf` may set
 options 0 = immediate full-cache fill). Playlist-move, shuffle, unshuffle,
 remove, and clear retarget prefetch to the new next entries instead of
 keeping a stale previous next. `--autocreate-playlist=filter|same` opens a
-local regular file first and scans siblings on a worker; the playlist may
+local regular file first and scans siblings on a worker; the core splices
+remaining entries in bulk (reuses the worker playlist). The playlist may
 grow after `file-loaded`.

@@ -117,6 +117,11 @@ int64_t playlist_transfer_entries_to(struct playlist *pl, int dst_index,
                                      struct playlist *source_pl);
 int64_t playlist_transfer_entries(struct playlist *pl, struct playlist *source_pl);
 int64_t playlist_append_entries(struct playlist *pl, struct playlist *source_pl);
+// Move the first `count` entries from source_pl into pl at dst_index.
+// Remaining source entries stay in source_pl. Does not copy
+// playlist_completed or playlist_started.
+void playlist_move_entries(struct playlist *pl, int dst_index,
+                           struct playlist *source_pl, int count);
 
 int playlist_entry_to_index(struct playlist *pl, struct playlist_entry *e);
 int playlist_entry_count(struct playlist *pl);

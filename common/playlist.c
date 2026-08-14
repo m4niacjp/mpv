@@ -16,6 +16,8 @@
  */
 
 #include <assert.h>
+#include <string.h>
+
 #include "playlist.h"
 #include "common/common.h"
 #include "common/global.h"
@@ -320,13 +322,15 @@ void playlist_set_stream_flags(struct playlist *pl, int flags)
         pl->entries[n]->stream_flags = flags;
 }
 
-int64_t playlist_transfer_entries_to(struct playlist *pl, int dst_index,
-                                     struct playlist *source_pl)
+void playlist_move_entries(struct playlist *pl, int dst_index,
+                           struct playlist *source_pl, int count)
 {
     mp_assert(pl != source_pl);
-    struct playlist_entry *first = playlist_get_first(source_pl);
+    mp_assert(dst_index >= 0 && dst_index <= pl->num_entries);
+    mp_assert(count >= 0 && count <= source_pl->num_entries);
+    if (count == 0)
+        return;
 
-    int count = source_pl->num_entries;
     MP_TARRAY_INSERT_N_AT(pl, pl->entries, pl->num_entries, dst_index, count);
 
     for (int n = 0; n < count; n++) {
@@ -339,8 +343,21 @@ int64_t playlist_transfer_entries_to(struct playlist *pl, int dst_index,
         talloc_steal(pl, e->playlist_path);
     }
 
+    int remain = source_pl->num_entries - count;
+    memmove(source_pl->entries, source_pl->entries + count,
+            remain * sizeof(source_pl->entries[0]));
+    source_pl->num_entries = remain;
+    playlist_update_indexes(source_pl, 0, -1);
     playlist_update_indexes(pl, dst_index + count, -1);
-    source_pl->num_entries = 0;
+}
+
+int64_t playlist_transfer_entries_to(struct playlist *pl, int dst_index,
+                                     struct playlist *source_pl)
+{
+    mp_assert(pl != source_pl);
+    struct playlist_entry *first = playlist_get_first(source_pl);
+
+    playlist_move_entries(pl, dst_index, source_pl, source_pl->num_entries);
 
     pl->playlist_completed = source_pl->playlist_completed;
     pl->playlist_started = source_pl->playlist_started;

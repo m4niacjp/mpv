@@ -2,5 +2,6 @@ make `--autocreate-playlist` only activate for regular files
 
 `--autocreate-playlist=filter|same` opens the requested local file immediately
 and inserts sibling playlist entries in the background. Directory listing no
-longer blocks the first frame. Opening a directory still lists it before
+longer blocks the first frame. The core splice reuses the worker playlist
+instead of rebuilding each sibling. Opening a directory still lists it before
 playback. The `playlist` property may grow after `file-loaded`.

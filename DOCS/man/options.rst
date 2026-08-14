@@ -4515,7 +4515,9 @@ Demuxer
     When opening a local regular file, create a playlist from sibling files in
     the parent directory. The requested file is opened immediately; the sibling
     list is built in the background so directory listing does not delay the
-    first frame. Opening an actual directory still lists it before playback.
+    first frame. Merging that list into the live playlist is a bulk splice, so
+    a large folder should not stall playback after the scan. Opening an actual
+    directory still lists it before playback.
 
     :no:     Load a single file (default).
     :filter: Create a playlist from the parent directory with files matching

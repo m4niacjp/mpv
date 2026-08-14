@@ -59,7 +59,6 @@ static void autocreate_finish(void *p)
     if (!drop) {
         struct playlist_entry *current = mpctx->playing;
         struct playlist *pl = mpctx->playlist;
-        struct playlist_entry *after = playlist_entry_get_rel(current, 1);
         int cur_in_scan = -1;
 
         for (int n = 0; n < job->pl->num_entries; n++) {
@@ -69,28 +68,22 @@ static void autocreate_finish(void *p)
             }
         }
 
+        if (cur_in_scan >= 0)
+            playlist_remove(job->pl, job->pl->entries[cur_in_scan]);
+
+        for (int n = 0; n < job->pl->num_entries; n++) {
+            struct playlist_entry *e = job->pl->entries[n];
+            e->stream_flags = current->stream_flags;
+            if (mpctx->opts->playlist_inherit_options == 1) {
+                playlist_entry_add_params(e, current->params,
+                                          current->num_params);
+            }
+        }
+
         int before = cur_in_scan >= 0 ? cur_in_scan : 0;
-        int first_after = cur_in_scan >= 0 ? cur_in_scan + 1 : 0;
-        for (int n = 0; n < before; n++) {
-            struct playlist_entry *e =
-                playlist_entry_new(job->pl->entries[n]->filename);
-            e->stream_flags = current->stream_flags;
-            if (mpctx->opts->playlist_inherit_options == 1) {
-                playlist_entry_add_params(e, current->params,
-                                          current->num_params);
-            }
-            playlist_insert_at(pl, e, current);
-        }
-        for (int n = first_after; n < job->pl->num_entries; n++) {
-            struct playlist_entry *e =
-                playlist_entry_new(job->pl->entries[n]->filename);
-            e->stream_flags = current->stream_flags;
-            if (mpctx->opts->playlist_inherit_options == 1) {
-                playlist_entry_add_params(e, current->params,
-                                          current->num_params);
-            }
-            playlist_insert_at(pl, e, after);
-        }
+        playlist_move_entries(pl, 0, job->pl, before);
+        playlist_move_entries(pl, current->pl_index + 1, job->pl,
+                              job->pl->num_entries);
 
         if (job->pl->playlist_dir && !pl->playlist_dir) {
             pl->playlist_dir =
