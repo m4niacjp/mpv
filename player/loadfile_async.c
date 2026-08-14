@@ -151,7 +151,7 @@ static bool start_open(struct MPContext *mpctx, struct playlist_entry *entry,
 {
     mp_assert(!mpctx->open);
 
-    struct async_open *open = talloc_zero(mpctx, struct async_open);
+    struct async_open *open = talloc_zero(NULL, struct async_open);
     open->mpctx = mpctx;
     open->cancel = mp_cancel_new(open);
     open->url = talloc_strdup(open, url);

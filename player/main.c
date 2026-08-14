@@ -178,6 +178,9 @@ void mp_print_version(struct mp_log *log, int always)
 void mp_destroy(struct MPContext *mpctx)
 {
     mp_shutdown_clients(mpctx);
+    // Prefetch/async opens are not outstanding_async; drop them before
+    // talloc_free(mpctx) destroys playback_abort / leftover open cancels.
+    cancel_open(mpctx);
 
     mp_uninit_ipc(mpctx->ipc_ctx);
     mpctx->ipc_ctx = NULL;

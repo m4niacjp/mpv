@@ -106,7 +106,8 @@ static void autocreate_finish(void *p)
                    pl->num_entries);
         mp_notify(mpctx, MP_EVENT_CHANGE_PLAYLIST, NULL);
         mp_notify_property(mpctx, "playlist");
-        prefetch_next(mpctx);
+        if (!mp_is_shutting_down(mpctx))
+            prefetch_next(mpctx);
     }
 
     talloc_free(job->pl);
