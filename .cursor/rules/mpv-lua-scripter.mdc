@@ -1,0 +1,36 @@
+---
+description: mpv user Lua and Lua-heavy mpv config — delegate to mpv-lua-scripter
+alwaysApply: true
+---
+
+# mpv Lua scripting — delegation
+
+When the task involves **writing or changing mpv user Lua** or **mpv config that is primarily implemented in Lua** for this setup:
+
+- **Scripts:** `C:\Users\andre\AppData\Roaming\mpv\scripts\*.lua`
+- **Paired config:** `mpv.conf`, `input.conf`, `script-opts\` under `C:\Users\andre\AppData\Roaming\mpv\` when the change exists to support or wire Lua
+
+**Do not** author or edit those `.lua` files (or the paired wiring) directly in
+the main agent. **Do** route the task to the **`mpv-lua-scripter`** agent/role
+using the host environment's delegation mechanism. In tools that support it,
+`Task(subagent_type="mpv-lua-scripter", prompt="…")` is one possible form;
+it is not a universal instruction syntax.
+
+Give the subagent:
+
+- Absolute paths under `C:\Users\andre\AppData\Roaming\mpv\` (or repo `AGENTS.md` when coordinating docs only).
+- Task scale (trivial config tweak vs new script vs cross-script contract change).
+- Whether `input.conf` bindings are needed — remind it that `script-message-to` uses **`mp.get_script_name()`** (e.g. `pip-toggle.lua` → `pip_toggle`, `quick-menu.lua` → `quick_menu`).
+- Idempotency / migration notes and how results should be merged.
+
+The parent agent **applies** file changes from the subagent’s output contract (paths, install steps, test steps). Do not edit Roaming `.lua` or Lua-wired config inline in the parent.
+
+**Repo C / meson work** in this tree is unchanged. This rule targets **custom Roaming mpv scripts** and their config glue. For **builtin** `player/lua` or upstream mpv core, use normal exploration; still prefer **`mpv-lua-scripter`** when the deliverable is a **user script** pattern (same APIs, Windows 11).
+
+For RTX, PIP, quick-menu, or delete behavior, point the subagent at Roaming `Docs\Reference\` when useful.
+
+See [AGENTS.md](../../AGENTS.md) for repository onboarding and the required
+routing boundary. Script inventory, bindings, and PIP/RTX `user-data` contracts
+belong in the Roaming configuration documentation and in the target scripts;
+inspect those sources before changing them. Subagent reference:
+[.cursor/agents/mpv-lua-scripter.md](../agents/mpv-lua-scripter.md).
