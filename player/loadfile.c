@@ -1600,6 +1600,7 @@ static void play_current_file(struct MPContext *mpctx)
 
     mp_notify(mpctx, MPV_EVENT_START_FILE, &start_event);
 
+    mp_cancel_autocreate_playlist(mpctx);
     mp_cancel_reset(mpctx->playback_abort);
 
     mpctx->error_playing = MPV_ERROR_LOADING_FAILED;
@@ -1716,6 +1717,8 @@ static void play_current_file(struct MPContext *mpctx)
         mpctx->error_playing = 2;
         goto terminate_playback;
     }
+
+    mp_start_autocreate_playlist(mpctx);
 
     if (mpctx->opts->rebase_start_time)
         demux_set_ts_offset(mpctx->demuxer, -mpctx->demuxer->start_time);
@@ -1915,6 +1918,7 @@ terminate_playback:
     uninit_demuxer(mpctx);
 
     // Possibly stop ongoing async commands.
+    mp_cancel_autocreate_playlist(mpctx);
     mp_abort_playback_async(mpctx);
 
     struct playlist_entry *current = mpctx->playlist->current;
@@ -2098,6 +2102,7 @@ void mp_play_files(struct MPContext *mpctx)
     }
 
     cancel_open(mpctx);
+    mp_cancel_autocreate_playlist(mpctx);
 
     if (mpctx->encode_lavc_ctx) {
         // Make sure all streams get finished.

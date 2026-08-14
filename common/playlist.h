@@ -126,6 +126,11 @@ struct mp_cancel;
 struct mpv_global;
 struct playlist *playlist_parse_file(const char *file, struct mp_cancel *cancel,
                                      struct mpv_global *global);
+// Scan the parent directory of a local file using --autocreate-playlist.
+// Returns a new playlist (including the opened file) or NULL.
+struct playlist *playlist_autocreate_siblings(const char *filename,
+                                              struct mp_cancel *cancel,
+                                              struct mpv_global *global);
 
 void playlist_entry_unref(struct playlist_entry *e);
 

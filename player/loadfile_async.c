@@ -46,6 +46,7 @@ struct async_open {
     uint64_t playlist_entry_id;
     bool for_prefetch;
     bool start_prefetch;
+    bool start_window;
     double prefetch_secs;
     int64_t prefetch_bytes;
 
@@ -58,6 +59,7 @@ struct prefetched_file {
     char *url;
     struct demuxer *demuxer;
     int error;
+    bool start_window;
 };
 
 static void wakeup_demux(void *pctx)
@@ -78,8 +80,7 @@ static MP_THREAD_VOID open_demux_thread(void *ctx)
         .stream_flags = open->url_flags,
         .stream_record = true,
         .is_top_level = true,
-        .allow_playlist_create = mpctx->playlist->num_entries <= 1 &&
-                                 !mpctx->playlist->playlist_dir,
+        .allow_playlist_create = false,
     };
     open->demuxer =
         demux_open_url(open->url, &p, open->cancel, mpctx->global);
@@ -91,6 +92,10 @@ static MP_THREAD_VOID open_demux_thread(void *ctx)
             int num_streams = demux_get_num_stream(open->demuxer);
             for (int n = 0; n < num_streams; n++) {
                 struct sh_stream *sh = demux_get_stream(open->demuxer, n);
+                if (sh->type != STREAM_VIDEO && sh->type != STREAM_AUDIO)
+                    continue;
+                if (sh->image)
+                    continue;
                 demuxer_select_track(open->demuxer, sh, MP_NOPTS_VALUE, true);
             }
 
@@ -99,6 +104,8 @@ static MP_THREAD_VOID open_demux_thread(void *ctx)
             demux_set_wakeup_cb(open->demuxer, wakeup_demux, mpctx);
             demux_start_thread(open->demuxer);
             demux_start_prefetch(open->demuxer);
+        } else {
+            open->start_window = false;
         }
     } else {
         MP_VERBOSE(mpctx, "Opening failed or was aborted: %s\n", open->url);
@@ -153,8 +160,19 @@ static bool start_open(struct MPContext *mpctx, struct playlist_entry *entry,
     open->playlist_entry_id = entry ? entry->id : 0;
     open->for_prefetch = for_prefetch;
     open->start_prefetch = for_prefetch && mpctx->opts->demuxer_thread;
-    open->prefetch_secs = mpctx->opts->prefetch_open_secs;
-    open->prefetch_bytes = mpctx->opts->prefetch_open_bytes;
+    bool extra = mpctx->num_prefetched_files >= 1;
+    bool use_start = !extra &&
+                     (mpctx->opts->prefetch_open_start_secs > 0 ||
+                      mpctx->opts->prefetch_open_start_bytes > 0);
+    if (use_start) {
+        open->prefetch_secs = mpctx->opts->prefetch_open_start_secs;
+        open->prefetch_bytes = mpctx->opts->prefetch_open_start_bytes;
+        open->start_window = true;
+    } else {
+        open->prefetch_secs = mpctx->opts->prefetch_open_secs;
+        open->prefetch_bytes = mpctx->opts->prefetch_open_bytes;
+        open->start_window = false;
+    }
     atomic_init(&open->done, false);
 
     mpctx->open = open;
@@ -199,6 +217,7 @@ static void store_finished_prefetch(struct MPContext *mpctx)
         .url = talloc_steal(mpctx, open->url),
         .demuxer = open->demuxer,
         .error = open->error,
+        .start_window = open->start_window,
     };
     if (file.demuxer)
         mp_cancel_set_parent(file.demuxer->cancel, NULL);
@@ -387,6 +406,41 @@ static void drop_stale_prefetches(struct MPContext *mpctx)
     }
 }
 
+static bool prefetch_current_healthy(struct MPContext *mpctx)
+{
+    if (!mpctx->demuxer)
+        return false;
+
+    struct demux_reader_state s;
+    demux_get_reader_state(mpctx->demuxer, &s);
+    return !s.underrun;
+}
+
+void update_prefetch_state(struct MPContext *mpctx)
+{
+    store_finished_prefetch(mpctx);
+    if (!mpctx->num_prefetched_files)
+        return;
+
+    bool healthy = prefetch_current_healthy(mpctx);
+    struct prefetched_file *first = &mpctx->prefetched_files[0];
+    if (first->demuxer && first->start_window) {
+        struct demux_reader_state ps;
+        demux_get_reader_state(first->demuxer, &ps);
+        if (ps.cache_full || ps.eof) {
+            MP_VERBOSE(mpctx, "Prefetch start window ready.\n");
+            if (healthy) {
+                demux_set_prefetch_limits(first->demuxer,
+                                          mpctx->opts->prefetch_open_secs,
+                                          mpctx->opts->prefetch_open_bytes);
+                demux_start_prefetch(first->demuxer);
+                first->start_window = false;
+                MP_VERBOSE(mpctx, "Prefetch expanding cache.\n");
+            }
+        }
+    }
+}
+
 void prefetch_next(struct MPContext *mpctx)
 {
     if (mpctx->demuxer_changed) {
@@ -399,7 +453,7 @@ void prefetch_next(struct MPContext *mpctx)
         return;
     }
 
-    store_finished_prefetch(mpctx);
+    update_prefetch_state(mpctx);
     drop_stale_prefetches(mpctx);
     if (mpctx->open)
         return;
@@ -407,6 +461,13 @@ void prefetch_next(struct MPContext *mpctx)
     int max = mpctx->opts->prefetch_open_max;
     if (mpctx->num_prefetched_files >= max)
         return;
+
+    if (mpctx->num_prefetched_files >= 1) {
+        if (mpctx->prefetched_files[0].start_window)
+            return;
+        if (!prefetch_current_healthy(mpctx))
+            return;
+    }
 
     struct playlist_entry *entry = mp_next_file(mpctx, +1, false, false);
     for (int n = 0; entry && n < max; n++) {

@@ -167,6 +167,7 @@ sources = files(
 
     ## Player
     'player/audio.c',
+    'player/autocreate_playlist.c',
     'player/client.c',
     'player/command.c',
     'player/configfiles.c',

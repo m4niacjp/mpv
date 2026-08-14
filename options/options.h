@@ -328,6 +328,8 @@ typedef struct MPOpts {
     bool prefetch_open_realtime;
     double prefetch_open_secs;
     int64_t prefetch_open_bytes;
+    double prefetch_open_start_secs;
+    int64_t prefetch_open_start_bytes;
     char *audio_demuxer_name;
     char *sub_demuxer_name;
 

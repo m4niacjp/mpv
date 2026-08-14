@@ -466,6 +466,8 @@ typedef struct MPContext {
     int num_prefetched_files;
     bool demuxer_changed;
 
+    struct autocreate_job *autocreate;
+
     struct mp_als *als_state; // lazily initialized on first use
 } MPContext;
 
@@ -554,8 +556,11 @@ void autoload_external_files(struct MPContext *mpctx, struct mp_cancel *cancel);
 struct track *select_default_track(struct MPContext *mpctx, int order,
                                    enum stream_type type);
 void prefetch_next(struct MPContext *mpctx);
+void update_prefetch_state(struct MPContext *mpctx);
 void cancel_open(struct MPContext *mpctx);
 void open_demux_reentrant(struct MPContext *mpctx);
+void mp_start_autocreate_playlist(struct MPContext *mpctx);
+void mp_cancel_autocreate_playlist(struct MPContext *mpctx);
 void update_lavfi_complex(struct MPContext *mpctx);
 void update_vo_chain_el_pair(struct MPContext *mpctx);
 

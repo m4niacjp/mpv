@@ -61,7 +61,7 @@ targeted build and `dist\` refresh.
 
 | Area | Current source | Focused tests to inspect | Primary docs |
 | --- | --- | --- | --- |
-| Playback, commands, scripting | `player/` (incl. `player/loadfile_async.c`), `input/`, `options/` | `test/libmpv_test_*.c`, `test/paths.c` | `DOCS/man/{commands,input,lua,options}.rst` |
+| Playback, commands, scripting | `player/` (incl. `player/loadfile_async.c`, `player/autocreate_playlist.c`), `input/`, `options/` | `test/libmpv_test_*.c`, `test/paths.c` | `DOCS/man/{commands,input,lua,options}.rst` |
 | Audio, video, subtitles, filters | `audio/`, `video/`, `sub/`, `filters/` | `test/{chmap,format,gl_video,img_format,scale_*}.c` | `DOCS/man/{af,ao,vf,vo}.rst` |
 | Demuxing, streams, cache | `demux/`, `stream/` | `test/avio_crypto.c`; inspect `test/` for related coverage | `DOCS/man/options.rst`, `DOCS/man/commands.rst` |
 | Public embedding API | `include/mpv/`, `player/client.c` | `test/libmpv_*.c` | `DOCS/man/libmpv.rst`, header Doxygen |
@@ -107,7 +107,12 @@ for the scope and the scripter's output contract.
 
 For local playlist-prefetch testing, the Roaming `mpv.conf` may set
 `prefetch-playlist-on-cache=yes`, `prefetch-playlist-cache-secs=<seconds>`,
-`prefetch-playlist-cache-bytes=<bytesize>`, `prefetch-playlist-max`, and
-`prefetch-playlist-realtime=yes`. Playlist-move, shuffle, unshuffle, remove,
-and clear retarget prefetch to the new next entries instead of keeping a
-stale previous next.
+`prefetch-playlist-cache-bytes=<bytesize>`, `prefetch-playlist-max`,
+`prefetch-playlist-realtime=yes`, `prefetch-playlist-start-secs`, and
+`prefetch-playlist-start-bytes`. Next-1 fills the start window first; extra
+`prefetch-playlist-max` entries wait until that window is full (both start
+options 0 = immediate full-cache fill). Playlist-move, shuffle, unshuffle,
+remove, and clear retarget prefetch to the new next entries instead of
+keeping a stale previous next. `--autocreate-playlist=filter|same` opens a
+local regular file first and scans siblings on a worker; the playlist may
+grow after `file-loaded`.

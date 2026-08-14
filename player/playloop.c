@@ -717,6 +717,8 @@ static void handle_update_cache(struct MPContext *mpctx)
         return;
     }
 
+    if (opts->prefetch_open)
+        update_prefetch_state(mpctx);
     if (opts->prefetch_open_realtime)
         prefetch_next(mpctx);
 

@@ -64,17 +64,21 @@ Upstream `origin/master` was last verified at:
 ```
 
 `fork/master` tracks local `master`, which is `origin/master` plus local
-prefetch commits. The prefetch work currently ends at:
+prefetch commits. Committed prefetch work currently ends at:
 
 ```text
-a47633f2618eeabd1f4afa6ad0a528990bdba1b4
+3c55dfdbbea17e65e7cbda10f9188e50e87bf5a1
 ```
 
 That includes on-cache start, `--prefetch-playlist-max` /
-`--prefetch-playlist-realtime`, and playlist-edit retarget (drop retained
+`--prefetch-playlist-realtime`, playlist-edit retarget (drop retained
 demuxers that left the next window after `playlist-move`, shuffle, unshuffle,
-remove, or clear, then prefetch the new next files). Refresh this hash from
-`git rev-parse` after further prefetch commits land.
+remove, or clear, then prefetch the new next files), two-phase prefetch
+start-window options (`--prefetch-playlist-start-secs` default 10,
+`--prefetch-playlist-start-bytes` default 32MiB; both 0 = immediate
+full-cache fill), and async `--autocreate-playlist` for local regular files
+(open the media file first; sibling scan on a worker). Refresh this hash
+from `git rev-parse` after further prefetch commits land.
 
 If the fork falls behind upstream and the local worktree is clean, fast-forward
 the fork from upstream and push it:
