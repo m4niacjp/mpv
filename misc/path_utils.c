@@ -273,6 +273,34 @@ exit:
     return result;
 }
 
+int mp_path_compare(const char *p1, const char *p2)
+{
+    if (p1 == p2)
+        return 0;
+    if (!p1 || !p2)
+        return p1 ? 1 : -1;
+
+#if HAVE_DOS_PATHS
+    while (*p1 && *p2) {
+        char c1 = *p1;
+        char c2 = *p2;
+        if (c1 == '/')
+            c1 = '\\';
+        if (c2 == '/')
+            c2 = '\\';
+        if (mp_tolower(c1) != mp_tolower(c2))
+            return (unsigned char)mp_tolower(c1) - (unsigned char)mp_tolower(c2);
+        p1++;
+        p2++;
+    }
+    char c1 = (*p1 == '/') ? '\\' : *p1;
+    char c2 = (*p2 == '/') ? '\\' : *p2;
+    return (unsigned char)mp_tolower(c1) - (unsigned char)mp_tolower(c2);
+#else
+    return strcmp(p1, p2);
+#endif
+}
+
 bool mp_path_exists(const char *path)
 {
     struct stat st;

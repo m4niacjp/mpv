@@ -3662,10 +3662,12 @@ static int get_playlist_entry(int item, int action, void *arg, void *ctx)
 
     bool current = mpctx->playlist->current == e;
     bool playing = mpctx->playing == e;
+    bool prefetched = is_entry_prefetched(mpctx, e);
     struct m_sub_property props[] = {
         {"filename",      SUB_PROP_STR(e->filename)},
         {"current",       SUB_PROP_BOOL(1), .unavailable = !current},
         {"playing",       SUB_PROP_BOOL(1), .unavailable = !playing},
+        {"prefetched",    SUB_PROP_BOOL(1), .unavailable = !prefetched},
         {"title",         SUB_PROP_STR(e->title), .unavailable = !e->title},
         {"id",            SUB_PROP_INT64(e->id)},
         {"playlist-path", SUB_PROP_STR(e->playlist_path), .unavailable = !e->playlist_path},
@@ -3673,6 +3675,20 @@ static int get_playlist_entry(int item, int action, void *arg, void *ctx)
     };
 
     return m_property_read_sub(props, action, arg);
+}
+
+static int mp_property_prefetched_count(void *ctx, struct m_property *prop,
+                                        int action, void *arg)
+{
+    struct MPContext *mpctx = ctx;
+    return m_property_int64_ro(action, arg, mpctx->num_prefetched_files);
+}
+
+static int mp_property_prefetch_active(void *ctx, struct m_property *prop,
+                                       int action, void *arg)
+{
+    struct MPContext *mpctx = ctx;
+    return m_property_bool_ro(action, arg, is_prefetch_active(mpctx));
 }
 
 static int mp_property_playlist_path(void *ctx, struct m_property *prop,
@@ -4684,6 +4700,8 @@ static const struct m_property mp_properties_base[] = {
     {"playlist-current-pos", mp_property_playlist_current_pos},
     {"playlist-playing-pos", mp_property_playlist_playing_pos},
     M_PROPERTY_ALIAS("playlist-count", "playlist/count"),
+    {"prefetched-count", mp_property_prefetched_count},
+    {"prefetch-active", mp_property_prefetch_active},
 
     // Audio
     {"mixer-active", mp_property_mixer_active},

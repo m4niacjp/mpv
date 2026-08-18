@@ -200,6 +200,9 @@ static void uninit_demuxer(struct MPContext *mpctx)
     mpctx->chapters = NULL;
     mpctx->num_chapters = 0;
 
+    talloc_free(mpctx->prefetched_external_files);
+    mpctx->prefetched_external_files = NULL;
+
     mp_abort_cache_dumping(mpctx);
 
     struct demuxer **demuxers = NULL;
@@ -1048,7 +1051,10 @@ void autoload_external_files(struct MPContext *mpctx, struct mp_cancel *cancel)
         return;
 
     void *tmp = talloc_new(NULL);
-    struct subfn *list = find_external_files(mpctx->global, mpctx->filename, opts);
+    struct subfn *list = mpctx->prefetched_external_files;
+    mpctx->prefetched_external_files = NULL;
+    if (!list)
+        list = find_external_files(mpctx->global, mpctx->filename, opts);
     talloc_steal(tmp, list);
 
     // demux_edl allocates metadata track with type set to STREAM_TYPE_COUNT,
@@ -1625,6 +1631,8 @@ static void play_current_file(struct MPContext *mpctx)
     mp_filter_graph_set_max_run_time(mpctx->filter_root, 0.1);
 
     reset_playback_state(mpctx);
+    talloc_free(mpctx->prefetched_external_files);
+    mpctx->prefetched_external_files = NULL;
 
 #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     if (mpctx->playlist->num_entries > 3)

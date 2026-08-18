@@ -280,6 +280,18 @@ struct playlist_entry *playlist_entry_get_rel(struct playlist_entry *e,
     return playlist_entry_from_index(e->pl, e->pl_index + direction);
 }
 
+struct playlist_entry *playlist_entry_get_next_cyclic(struct playlist *pl,
+                                                      struct playlist_entry *e,
+                                                      bool loop)
+{
+    if (!pl || !e || !e->pl)
+        return NULL;
+    struct playlist_entry *next = playlist_entry_get_rel(e, 1);
+    if (!next && loop && pl->num_entries > 0)
+        next = playlist_get_first(pl);
+    return next;
+}
+
 struct playlist_entry *playlist_get_first_in_next_playlist(struct playlist *pl,
                                                            int direction)
 {

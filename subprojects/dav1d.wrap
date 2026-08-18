@@ -1,0 +1,7 @@
+[wrap-git]
+url = https://code.videolan.org/videolan/dav1d
+revision = master
+depth = 1
+clone-recursive = true
+[provide]
+dav1d = dav1d_dep

@@ -33,6 +33,8 @@
 #include "osdep/als.h"
 #include "demux/stheader.h"
 
+struct subfn;
+
 // definitions used internally by the core player code
 
 enum stop_play_reason {
@@ -464,6 +466,7 @@ typedef struct MPContext {
     struct async_open *open;
     struct prefetched_file *prefetched_files;
     int num_prefetched_files;
+    struct subfn *prefetched_external_files;
     bool demuxer_changed;
 
     struct autocreate_job *autocreate;
@@ -557,6 +560,8 @@ struct track *select_default_track(struct MPContext *mpctx, int order,
                                    enum stream_type type);
 void prefetch_next(struct MPContext *mpctx);
 void update_prefetch_state(struct MPContext *mpctx);
+bool is_prefetch_active(struct MPContext *mpctx);
+bool is_entry_prefetched(struct MPContext *mpctx, struct playlist_entry *entry);
 void cancel_open(struct MPContext *mpctx);
 void open_demux_reentrant(struct MPContext *mpctx);
 void mp_start_autocreate_playlist(struct MPContext *mpctx);

@@ -25,8 +25,8 @@ future entry, and simultaneous reads can compete for disk or network I/O.
 for the immediate next entry first. Extra retained entries are not opened until
 that window is full and the current demuxer is not underrunning. Set both to 0
 to fill the full prefetch cache caps immediately. Prefetch selects audio and
-video tracks only; subtitle and attached-image tracks are left to normal
-selection on adopt.
+video tracks while discovering companion external files in the background,
+allowing instant adoption with zero disk search delay at track transition.
 
 Playlist-move, playlist-reorder, shuffle, unshuffle, remove, and clear retarget
 `--prefetch-playlist` to the new next entries instead of retaining a stale

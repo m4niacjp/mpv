@@ -112,6 +112,9 @@ struct playlist_entry *playlist_get_last(struct playlist *pl);
 struct playlist_entry *playlist_get_next(struct playlist *pl, int direction);
 struct playlist_entry *playlist_entry_get_rel(struct playlist_entry *e,
                                               int direction);
+struct playlist_entry *playlist_entry_get_next_cyclic(struct playlist *pl,
+                                                      struct playlist_entry *e,
+                                                      bool loop);
 struct playlist_entry *playlist_get_first_in_next_playlist(struct playlist *pl,
                                                            int direction);
 struct playlist_entry *playlist_get_first_in_same_playlist(struct playlist_entry *entry,

@@ -26,12 +26,15 @@
 #include "common/msg.h"
 #include "common/playlist.h"
 #include "demux/demux.h"
+#include "misc/path_utils.h"
 #include "misc/thread_tools.h"
 #include "options/options.h"
 #include "osdep/threads.h"
 
 #include "client.h"
+#include "command.h"
 #include "core.h"
+#include "external_files.h"
 
 struct async_open {
     struct MPContext *mpctx;
@@ -51,6 +54,7 @@ struct async_open {
     int64_t prefetch_bytes;
 
     struct demuxer *demuxer;
+    struct subfn *external_files;
     int error;
 };
 
@@ -58,6 +62,7 @@ struct prefetched_file {
     uint64_t playlist_entry_id;
     char *url;
     struct demuxer *demuxer;
+    struct subfn *external_files;
     int error;
     bool start_window;
 };
@@ -107,6 +112,18 @@ static MP_THREAD_VOID open_demux_thread(void *ctx)
         } else {
             open->start_window = false;
         }
+
+        if (open->for_prefetch) {
+            struct MPOpts *opts = mpctx->opts;
+            if ((opts->sub_auto >= 0 || opts->audiofile_auto >= 0 || opts->coverart_auto >= 0) &&
+                opts->autoload_files && strcmp(open->url, "-") != 0 &&
+                !mp_is_url(bstr0(open->url)) && !mp_cancel_test(open->cancel))
+            {
+                open->external_files = find_external_files(mpctx->global, open->url, opts);
+                if (open->external_files)
+                    talloc_steal(open, open->external_files);
+            }
+        }
     } else {
         MP_VERBOSE(mpctx, "Opening failed or was aborted: %s\n", open->url);
         open->error = p.demuxer_failed ? MPV_ERROR_UNKNOWN_FORMAT
@@ -124,14 +141,20 @@ static void destroy_open(struct MPContext *mpctx)
     if (!open)
         return;
 
+    bool was_prefetch = open->for_prefetch;
     mp_cancel_trigger(open->cancel);
     if (open->active)
         mp_thread_join(open->thread);
     if (open->demuxer)
         demux_cancel_and_free(open->demuxer);
+    talloc_free(open->external_files);
 
     mpctx->open = NULL;
     talloc_free(open);
+    if (was_prefetch) {
+        mp_notify_property(mpctx, "prefetch-active");
+        mp_notify_property(mpctx, "playlist");
+    }
 }
 
 static struct async_open *take_finished_open(struct MPContext *mpctx)
@@ -160,8 +183,7 @@ static bool start_open(struct MPContext *mpctx, struct playlist_entry *entry,
     open->playlist_entry_id = entry ? entry->id : 0;
     open->for_prefetch = for_prefetch;
     open->start_prefetch = for_prefetch && mpctx->opts->demuxer_thread;
-    bool extra = mpctx->num_prefetched_files >= 1;
-    bool use_start = !extra &&
+    bool use_start = for_prefetch &&
                      (mpctx->opts->prefetch_open_start_secs > 0 ||
                       mpctx->opts->prefetch_open_start_bytes > 0);
     if (use_start) {
@@ -182,27 +204,39 @@ static bool start_open(struct MPContext *mpctx, struct playlist_entry *entry,
     }
 
     open->active = true;
+    if (for_prefetch) {
+        mp_notify_property(mpctx, "prefetch-active");
+        mp_notify_property(mpctx, "playlist");
+    }
     return true;
 }
 
 static void clear_prefetched_files(struct MPContext *mpctx)
 {
+    bool had_files = mpctx->num_prefetched_files > 0;
     for (int n = 0; n < mpctx->num_prefetched_files; n++) {
         struct prefetched_file *file = &mpctx->prefetched_files[n];
         if (file->demuxer)
             demux_cancel_and_free(file->demuxer);
+        talloc_free(file->external_files);
         talloc_free(file->url);
     }
 
     talloc_free(mpctx->prefetched_files);
     mpctx->prefetched_files = NULL;
     mpctx->num_prefetched_files = 0;
+    if (had_files) {
+        mp_notify_property(mpctx, "prefetched-count");
+        mp_notify_property(mpctx, "playlist");
+    }
 }
 
 void cancel_open(struct MPContext *mpctx)
 {
     destroy_open(mpctx);
     clear_prefetched_files(mpctx);
+    talloc_free(mpctx->prefetched_external_files);
+    mpctx->prefetched_external_files = NULL;
 }
 
 static void store_finished_prefetch(struct MPContext *mpctx)
@@ -216,6 +250,7 @@ static void store_finished_prefetch(struct MPContext *mpctx)
         .playlist_entry_id = open->playlist_entry_id,
         .url = talloc_steal(mpctx, open->url),
         .demuxer = open->demuxer,
+        .external_files = talloc_steal(mpctx, open->external_files),
         .error = open->error,
         .start_window = open->start_window,
     };
@@ -223,9 +258,13 @@ static void store_finished_prefetch(struct MPContext *mpctx)
         mp_cancel_set_parent(file.demuxer->cancel, NULL);
     open->url = NULL;
     open->demuxer = NULL;
+    open->external_files = NULL;
     MP_TARRAY_APPEND(mpctx, mpctx->prefetched_files,
                      mpctx->num_prefetched_files, file);
     talloc_free(open);
+    mp_notify_property(mpctx, "prefetched-count");
+    mp_notify_property(mpctx, "prefetch-active");
+    mp_notify_property(mpctx, "playlist");
 }
 
 static int find_prefetched_file(struct MPContext *mpctx,
@@ -248,6 +287,8 @@ static struct prefetched_file take_prefetched_file(struct MPContext *mpctx,
     struct prefetched_file file = mpctx->prefetched_files[index];
     MP_TARRAY_REMOVE_AT(mpctx->prefetched_files,
                         mpctx->num_prefetched_files, index);
+    mp_notify_property(mpctx, "prefetched-count");
+    mp_notify_property(mpctx, "playlist");
     return file;
 }
 
@@ -295,11 +336,14 @@ void open_demux_reentrant(struct MPContext *mpctx)
         if (file.demuxer) {
             MP_VERBOSE(mpctx, "Using prefetched URL.\n");
             adopt_demuxer(mpctx, file.demuxer);
+            talloc_free(mpctx->prefetched_external_files);
+            mpctx->prefetched_external_files = file.external_files;
             talloc_free(file.url);
             return;
         }
 
         MP_VERBOSE(mpctx, "Prefetched URL failed, retrying.\n");
+        talloc_free(file.external_files);
         talloc_free(file.url);
         destroy_open(mpctx);
     }
@@ -345,17 +389,31 @@ void open_demux_reentrant(struct MPContext *mpctx)
     if (open->demuxer) {
         adopt_demuxer(mpctx, open->demuxer);
         open->demuxer = NULL;
+        talloc_free(mpctx->prefetched_external_files);
+        mpctx->prefetched_external_files = talloc_steal(mpctx, open->external_files);
+        open->external_files = NULL;
     } else {
         mpctx->error_playing = open->error;
     }
     talloc_free(open);
 }
 
-static bool is_prefetched(struct MPContext *mpctx,
-                          struct playlist_entry *entry)
+bool is_prefetch_active(struct MPContext *mpctx)
 {
-    if (mpctx->open && mpctx->open->playlist_entry_id == entry->id)
+    return mpctx->open && mpctx->open->for_prefetch;
+}
+
+bool is_entry_prefetched(struct MPContext *mpctx,
+                         struct playlist_entry *entry)
+{
+    if (!entry)
+        return false;
+
+    if (mpctx->open && mpctx->open->for_prefetch &&
+        mpctx->open->playlist_entry_id == entry->id)
+    {
         return true;
+    }
 
     for (int n = 0; n < mpctx->num_prefetched_files; n++) {
         if (mpctx->prefetched_files[n].playlist_entry_id == entry->id)
@@ -366,14 +424,23 @@ static bool is_prefetched(struct MPContext *mpctx,
 
 static bool id_in_prefetch_window(struct MPContext *mpctx, uint64_t id)
 {
+    struct playlist_entry *current = mpctx->playlist->current;
+    if (mpctx->stop_play == PT_CURRENT_ENTRY && current &&
+        current != mpctx->playing &&
+        !mpctx->playlist->current_was_replaced && current->id == id)
+    {
+        return true;
+    }
+
     int max = mpctx->opts->prefetch_open_max;
+    bool loop = mpctx->opts->loop_times != 1;
     struct playlist_entry *entry = mp_next_file(mpctx, +1, false, false);
     for (int n = 0; entry && n < max; n++) {
         if (entry == mpctx->playing)
             break;
         if (entry->id == id)
             return true;
-        entry = playlist_entry_get_rel(entry, 1);
+        entry = playlist_entry_get_next_cyclic(mpctx->playlist, entry, loop);
     }
     return false;
 }
@@ -383,9 +450,12 @@ static void free_prefetched_at(struct MPContext *mpctx, int index)
     struct prefetched_file *file = &mpctx->prefetched_files[index];
     if (file->demuxer)
         demux_cancel_and_free(file->demuxer);
+    talloc_free(file->external_files);
     talloc_free(file->url);
     MP_TARRAY_REMOVE_AT(mpctx->prefetched_files,
                         mpctx->num_prefetched_files, index);
+    mp_notify_property(mpctx, "prefetched-count");
+    mp_notify_property(mpctx, "playlist");
 }
 
 static void drop_stale_prefetches(struct MPContext *mpctx)
@@ -453,6 +523,16 @@ void prefetch_next(struct MPContext *mpctx)
         return;
     }
 
+    // mp_set_playlist_entry() changes playlist->current before the old file
+    // finishes teardown. Keep the selected entry adoptable until
+    // play_current_file() makes it mpctx->playing and claims its demuxer.
+    if (mpctx->stop_play == PT_CURRENT_ENTRY && mpctx->playlist->current &&
+        mpctx->playlist->current != mpctx->playing &&
+        !mpctx->playlist->current_was_replaced)
+    {
+        return;
+    }
+
     update_prefetch_state(mpctx);
     drop_stale_prefetches(mpctx);
     if (mpctx->open)
@@ -469,15 +549,16 @@ void prefetch_next(struct MPContext *mpctx)
             return;
     }
 
+    bool loop = mpctx->opts->loop_times != 1;
     struct playlist_entry *entry = mp_next_file(mpctx, +1, false, false);
     for (int n = 0; entry && n < max; n++) {
         if (entry == mpctx->playing)
             break;
-        if (entry->filename && !is_prefetched(mpctx, entry)) {
+        if (entry->filename && !is_entry_prefetched(mpctx, entry)) {
             MP_VERBOSE(mpctx, "Prefetching: %s\n", entry->filename);
             start_open(mpctx, entry, entry->filename, entry->stream_flags, true);
             return;
         }
-        entry = playlist_entry_get_rel(entry, 1);
+        entry = playlist_entry_get_next_cyclic(mpctx->playlist, entry, loop);
     }
 }

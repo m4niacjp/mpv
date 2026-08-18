@@ -67,7 +67,7 @@ Upstream `origin/master` was last verified at:
 prefetch commits. Committed prefetch work currently ends at:
 
 ```text
-72a875bd10322089d60525093a415a7cdbe52761
+496f5920bdab10e5ee2a93e0b4b09e072e07f7a3
 ```
 
 That includes on-cache start, `--prefetch-playlist-max` /
@@ -109,11 +109,10 @@ git status --short
 git diff --name-only
 ```
 
-The tracked onboarding set is `AGENTS.md`, `DOCS/local-workflow.md`,
-`.cursor/rules/mpv-lua-scripter.mdc`, and
-`.cursor/agents/mpv-lua-scripter.md`. Keep unrelated local tooling and build
-artifacts out of scope unless the task explicitly includes them; inspect the
-current worktree rather than relying on a clean-tree snapshot.
+The tracked onboarding set is `AGENTS.md` and `DOCS/local-workflow.md`. Keep
+unrelated local tooling and build artifacts out of scope unless the task
+explicitly includes them; inspect the current worktree rather than relying on a
+clean-tree snapshot.
 
 ## Test suite caveat on this checkout
 

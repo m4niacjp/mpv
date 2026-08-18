@@ -1,0 +1,13 @@
+[wrap-file]
+directory = libssh2-libssh2-1.11.1
+source_url = https://github.com/libssh2/libssh2/archive/libssh2-1.11.1.tar.gz
+source_filename = libssh2-1.11.1.tar.gz
+source_hash = 82b35c61c78b475647bdc981a183c5b5ab0d979e1caee94186e8f9150f2b0d0d
+patch_filename = libssh2_1.11.1-2_patch.zip
+patch_url = https://wrapdb.mesonbuild.com/v2/libssh2_1.11.1-2/get_patch
+patch_hash = 652ff9402086a8aef6327ff843bc53adf3119dd45b179b76483eeacc7ad73f46
+source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/libssh2_1.11.1-2/libssh2-1.11.1.tar.gz
+wrapdb_version = 1.11.1-2
+
+[provide]
+libssh2 = libssh2_dep

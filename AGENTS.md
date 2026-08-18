@@ -102,10 +102,8 @@ agent/role using the active environment's delegation mechanism. Do not edit
 that Roaming Lua or Lua-wired configuration inline in the parent task.
 
 This routing does not apply to built-in `player/lua/` or normal upstream C/Meson
-work. See [.cursor/rules/mpv-lua-scripter.mdc](.cursor/rules/mpv-lua-scripter.mdc)
-for the scope and the scripter's output contract. Roaming `*.lua` client names
-replace non-alphanumeric characters with `_` (`playlist-sort.lua` is
-`playlist_sort` for `script-message-to`).
+work. Roaming `*.lua` client names replace non-alphanumeric characters with `_`
+(`playlist-sort.lua` is `playlist_sort` for `script-message-to`).
 
 For local playlist-prefetch testing, the Roaming `mpv.conf` may set
 `prefetch-playlist-on-cache=yes`, `prefetch-playlist-cache-secs=<seconds>`,

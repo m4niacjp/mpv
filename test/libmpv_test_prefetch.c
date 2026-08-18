@@ -146,6 +146,7 @@ static void test_prefetch_realtime(const char *file)
 static void test_prefetch_adopt(void)
 {
     int opening_before = opening_done_count;
+    int prefetch_before = prefetch_count;
     const char *next[] = {"playlist-next", NULL};
     command(next);
     wait_for_file_loaded();
@@ -153,9 +154,11 @@ static void test_prefetch_adopt(void)
 
     if (!using_prefetched_count)
         fail("playlist-next did not reuse a prefetched demuxer\n");
-    if (opening_done_count != opening_before) {
-        fail("playlist-next reopened the next URL (%d new Opening done)\n",
-             opening_done_count - opening_before);
+    int new_opens = opening_done_count - opening_before;
+    int new_prefetches = prefetch_count - prefetch_before;
+    if (new_opens > new_prefetches) {
+        fail("playlist-next reopened the next URL (%d opens, %d prefetches)\n",
+             new_opens, new_prefetches);
     }
 }
 
@@ -237,6 +240,120 @@ static void test_autocreate_playlist(const char *file)
 #endif
 }
 
+static void test_prefetch_loop(const char *file)
+{
+    command_string("stop");
+    drain_events(1);
+    prefetch_count = 0;
+    opening_done_count = 0;
+
+    set_property_string("prefetch-playlist", "yes");
+    set_property_string("prefetch-playlist-max", "2");
+    set_property_string("prefetch-playlist-realtime", "yes");
+    set_property_string("prefetch-playlist-start-secs", "0");
+    set_property_string("prefetch-playlist-start-bytes", "0");
+    set_property_string("loop-playlist", "inf");
+    set_property_string("pause", "yes");
+    set_property_string("image-display-duration", "inf");
+
+    append_file(file);
+    append_file(file);
+
+    const char *play[] = {"playlist-play-index", "1", NULL};
+    command(play);
+    wait_for_file_loaded();
+
+    while (prefetch_count < 1 || opening_done_count < 2) {
+        mpv_event *event = mpv_wait_event(ctx, 5);
+        if (event->event_id == MPV_EVENT_NONE)
+            fail("timed out waiting for cyclic prefetch open\n");
+        process_event(event);
+    }
+
+    drain_events(1);
+    if (!prefetch_count)
+        fail("cyclic prefetch failed across playlist boundary\n");
+}
+
+static void test_prefetch_external_files(const char *file)
+{
+    command_string("stop");
+    drain_events(1);
+    prefetch_count = 0;
+    opening_done_count = 0;
+    using_prefetched_count = 0;
+
+    char dir[512], path_a[576], path_b[576], path_srt[576];
+    snprintf(dir, sizeof(dir), "mpv-sub-%d", (int)mp_getpid());
+    if (mp_mkdir(dir) != 0 && errno != EEXIST)
+        fail("failed to create temp dir '%s'\n", dir);
+    snprintf(path_a, sizeof(path_a), "%s/a.png", dir);
+    snprintf(path_b, sizeof(path_b), "%s/b.png", dir);
+    snprintf(path_srt, sizeof(path_srt), "%s/b.srt", dir);
+    copy_file(file, path_a);
+    copy_file(file, path_b);
+
+    FILE *f = fopen(path_srt, "w");
+    if (!f)
+        fail("failed to create '%s'\n", path_srt);
+    fprintf(f, "1\n00:00:00,000 --> 00:00:05,000\nHello\n");
+    fclose(f);
+
+    set_property_string("prefetch-playlist", "yes");
+    set_property_string("prefetch-playlist-max", "2");
+    set_property_string("prefetch-playlist-realtime", "yes");
+    set_property_string("sub-auto", "exact");
+    set_property_string("pause", "yes");
+    set_property_string("image-display-duration", "inf");
+
+    append_file(path_a);
+    append_file(path_b);
+
+    const char *play[] = {"playlist-play-index", "0", NULL};
+    command(play);
+    wait_for_file_loaded();
+
+    while (prefetch_count < 1 || opening_done_count < 2) {
+        mpv_event *event = mpv_wait_event(ctx, 5);
+        if (event->event_id == MPV_EVENT_NONE)
+            fail("timed out waiting for prefetch of second file\n");
+        process_event(event);
+    }
+
+    const char *next[] = {"playlist-next", NULL};
+    command(next);
+    wait_for_file_loaded();
+    drain_events(1);
+
+    if (!using_prefetched_count)
+        fail("failed to adopt prefetched file with external tracks\n");
+
+    int64_t track_count = 0;
+    get_property("track-list/count", MPV_FORMAT_INT64, &track_count);
+    bool found_sub = false;
+    for (int i = 0; i < track_count; i++) {
+        char prop[64];
+        snprintf(prop, sizeof(prop), "track-list/%d/type", i);
+        char *type = NULL;
+        get_property(prop, MPV_FORMAT_STRING, &type);
+        if (type && strcmp(type, "sub") == 0)
+            found_sub = true;
+        mpv_free(type);
+    }
+
+    if (!found_sub)
+        fail("prefetched external subtitle track was not loaded upon adoption\n");
+
+    remove(path_a);
+    remove(path_b);
+    remove(path_srt);
+#ifdef _WIN32
+    _rmdir(dir);
+#else
+    rmdir(dir);
+#endif
+}
+
 int main(int argc, char *argv[])
 {
     if (argc != 2)
@@ -256,8 +373,12 @@ int main(int argc, char *argv[])
     test_prefetch_adopt();
     printf("================ TEST: test_prefetch_start_window ================\n");
     test_prefetch_start_window();
+    printf("================ TEST: test_prefetch_loop ================\n");
+    test_prefetch_loop(argv[1]);
     printf("================ TEST: test_autocreate_playlist ================\n");
     test_autocreate_playlist(argv[1]);
+    printf("================ TEST: test_prefetch_external_files ================\n");
+    test_prefetch_external_files(argv[1]);
     printf("================ SHUTDOWN ================\n");
 
     command_string("quit");

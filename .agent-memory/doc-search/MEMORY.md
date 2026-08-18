@@ -9,7 +9,7 @@
   - `/websites/mpv_io_manual_stable`
   - `/mpv-player/mpv`
 - last_verified: 2026-08-14
-- repo_doc: docs/references/libraries/mpv.md
+- repo_doc: DOCS/references/libraries/mpv.md
 - notes: Prefer master manual for this checkout. GPU quality under GPU renderer options; builtin high-quality in etc/builtin.conf. Prefetch-on-cache family is local-fork in this dirty tree (not confirmed in Context7). Lua playlist-move/shuffle, start-file vs end-file, prefetch-playlist next-at-EOF, autocreate-playlist filter documented; user-data persistence and directory sort order not in ctx7. Cross-check defaults with dist/mpv.com --list-options.
 
 ### FFmpeg
@@ -20,9 +20,9 @@
 - version_ids:
   - `/websites/ffmpeg_doxygen_trunk`
   - `/websites/ffmpeg_documentation`
-- last_verified: 2026-08-14
+- last_verified: 2026-08-18
 - repo_doc: DOCS/references/libraries/ffmpeg.md
-- notes: Checkout wrap is meson-8.1; Context7 has no 8.1 Doxygen ID. Prefer 8.0 over 4.4/7.0. User options live under /websites/ffmpeg_documentation (ffmpeg-all.html).
+- notes: Checkout pins bd98801 (Meson wrap meson-8.1; libavformat 62.12.100/libavcodec 62.28.100). Context7 has no 8.1 Doxygen ID; prefer 8.0 over 4.4/7.0. User options live under /websites/ffmpeg_documentation (ffmpeg-all.html). In mpv lavf MKV open, mpv probes from the start before forced avformat_open_input; Matroska read_header stops at the first Cluster, parses non-Cues SeekHead entries via random seeks, and defers Cues. Default lavf auto skips find_stream_info via Matroska skipinfo; AVSEEK_SIZE is a metadata size query; tail I/O is not unconditional at open. D3D11VA device/frames setup is codec-side and does not read the file.
 
 ### libplacebo
 - aliases: placebo, pl_
@@ -32,5 +32,5 @@
 - version_ids:
   - `/websites/libplacebo`
 - last_verified: 2026-08-14
-- repo_doc: docs/references/libraries/libplacebo.md
+- repo_doc: DOCS/references/libraries/libplacebo.md
 - notes: Backend for mpv vo=gpu-next (v7.365.0; wrap master; meson >=7.360.1). Shader cache pl_renderer_load/save; D3D11 recompile costly. No documented prewarm. allow_delayed_peak default no. Polar/EWA slowest in options.md.

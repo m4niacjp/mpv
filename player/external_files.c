@@ -96,6 +96,16 @@ static void append_dir_external_files(struct mpv_global *global, struct MPOpts *
     mp_verbose(log, "Loading external files in %.*s\n", BSTR_P(path));
     struct dirent *de;
     while ((de = readdir(d))) {
+        if (de->d_name[0] == '.')
+            continue;
+
+#ifdef _DIRENT_HAVE_D_TYPE
+        if (de->d_type == DT_DIR || de->d_type == DT_FIFO ||
+            de->d_type == DT_SOCK || de->d_type == DT_CHR ||
+            de->d_type == DT_BLK)
+            continue;
+#endif
+
         void *tmpmem2 = talloc_new(tmpmem);
         struct bstr den = bstr0(de->d_name);
         struct bstr dename = mp_iconv_to_utf8(log, den,
@@ -171,7 +181,14 @@ static void append_dir_external_files(struct mpv_global *global, struct MPOpts *
             mp_trace(log, "Potential external file: \"%s\"  Priority: %d\n",
                    de->d_name, prio);
             char *extpath = mp_path_join_bstr(*slist, path, dename);
-            if (mp_path_exists(extpath)) {
+            bool exists = true;
+#ifdef _DIRENT_HAVE_D_TYPE
+            if (de->d_type == DT_UNKNOWN || de->d_type == DT_LNK)
+                exists = mp_path_exists(extpath);
+#else
+            exists = mp_path_exists(extpath);
+#endif
+            if (exists) {
                 MP_TARRAY_GROW(NULL, *slist, *nsub);
                 struct subfn *sub = *slist + (*nsub)++;
 

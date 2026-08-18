@@ -1,0 +1,5 @@
+[wrap-git]
+url = https://code.videolan.org/videolan/libplacebo.git
+revision = master
+depth = 1
+clone-recursive = true

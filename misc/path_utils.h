@@ -51,6 +51,8 @@ char *mp_getcwd(void *talloc_ctx);
 
 char *mp_normalize_path(void *talloc_ctx, const char *path);
 
+int mp_path_compare(const char *p1, const char *p2);
+
 bool mp_path_exists(const char *path);
 bool mp_path_isdir(const char *path);
 

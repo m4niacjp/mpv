@@ -3445,6 +3445,10 @@ Property list
         ``yes``/true if the ``playlist-current-pos`` property points to this
         entry, ``no``/false or unavailable otherwise.
 
+    ``playlist/N/prefetched``
+        ``yes``/true if this entry is currently prefetched or being prefetched
+        by ``--prefetch-playlist``, ``no``/false or unavailable otherwise.
+
     ``playlist/N/title``
         Name of the Nth entry. Available if the playlist file contains
         such fields and mpv's parser supports it for the given
@@ -3473,9 +3477,17 @@ Property list
                 "filename"      MPV_FORMAT_STRING
                 "current"       MPV_FORMAT_FLAG (might be missing)
                 "playing"       MPV_FORMAT_FLAG (same)
+                "prefetched"    MPV_FORMAT_FLAG (same)
                 "title"         MPV_FORMAT_STRING (optional)
                 "id"            MPV_FORMAT_INT64
                 "playlist-path" MPV_FORMAT_STRING (optional)
+
+``prefetched-count``
+    Number of playlist entries currently retained in the prefetch queue.
+
+``prefetch-active``
+    ``yes``/true if a background opener thread is actively prefetching a file,
+    ``no``/false otherwise.
 
 ``track-list``
     List of audio/video/sub tracks, current entry marked. When the file has

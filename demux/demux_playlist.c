@@ -430,7 +430,7 @@ static bool test_path(struct pl_parser *p, char *path, int autocreate)
 
     if (p->include_path) {
         char *norm = mp_normalize_path(NULL, path);
-        bool match = norm && strcmp(norm, p->include_path) == 0;
+        bool match = norm && mp_path_compare(norm, p->include_path) == 0;
         talloc_free(norm);
         if (match)
             return true;
@@ -478,15 +478,33 @@ static bool scan_dir(struct pl_parser *p, char *path,
             break;
 
 #ifdef _DIRENT_HAVE_D_TYPE
-        if (dir_mode == DIR_IGNORE && ep->d_type != DT_UNKNOWN) {
-            if (ep->d_type == DT_DIR)
+        if (ep->d_type == DT_REG) {
+            char *file = mp_path_join(p, path, ep->d_name);
+            struct pl_dir_entry f = {file, &file[path_len], .is_dir = false};
+            MP_TARRAY_APPEND(p, dir_entries, num_dir_entries, f);
+            continue;
+        }
+
+        if (ep->d_type == DT_DIR) {
+            if (dir_mode == DIR_IGNORE)
                 continue;
-            if (ep->d_type == DT_REG) {
-                char *file = mp_path_join(p, path, ep->d_name);
-                struct pl_dir_entry f = {file, &file[path_len], .is_dir = false};
-                MP_TARRAY_APPEND(p, dir_entries, num_dir_entries, f);
-                continue;
+            char *file = mp_path_join(p, path, ep->d_name);
+            struct stat st;
+            if (stat(file, &st) == 0 && S_ISDIR(st.st_mode)) {
+                bool skip_dir = false;
+                for (int n = 0; n < num_dir_stack; n++) {
+                    if (same_st(&dir_stack[n], &st)) {
+                        MP_VERBOSE(p, "Skip recursive entry: %s\n", file);
+                        skip_dir = true;
+                        break;
+                    }
+                }
+                if (!skip_dir) {
+                    struct pl_dir_entry d = {file, &file[path_len], st, true};
+                    MP_TARRAY_APPEND(p, dir_entries, num_dir_entries, d);
+                }
             }
+            continue;
         }
 #endif
 

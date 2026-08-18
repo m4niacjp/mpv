@@ -41,8 +41,18 @@ static void test_dirname(char *file, int line, char *path, char *expected)
 #define TEST_DIRNAME(path, expected) \
     test_dirname(__FILE__, __LINE__, path, expected)
 
+#define TEST_COMPARE(expected, a, b) \
+    assert_int_equal_impl(__FILE__, __LINE__, expected, mp_path_compare(a, b) == 0)
+
 int main(void)
 {
+    TEST_COMPARE(true,  "/foo/bar", "/foo/bar");
+    TEST_COMPARE(false, "/foo/bar", "/foo/baz");
+#if HAVE_DOS_PATHS
+    TEST_COMPARE(true,  "C:/foo/bar", "c:\\foo\\bar");
+    TEST_COMPARE(true,  "C:\\FOO\\BAR", "c:/foo/bar");
+    TEST_COMPARE(false, "C:/foo/bar", "d:/foo/bar");
+#endif
     TEST_ABS(true, "/ab");
     TEST_ABS(false, "ab");
     TEST_JOIN("",           "",             "");

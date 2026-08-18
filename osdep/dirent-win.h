@@ -631,8 +631,8 @@ dirent_first(_WDIR *dirp)
 {
 	/* Open directory and retrieve the first entry */
 	dirp->handle = FindFirstFileExW(
-		dirp->patt, FindExInfoStandard, &dirp->data,
-		FindExSearchNameMatch, NULL, 0);
+		dirp->patt, FindExInfoBasic, &dirp->data,
+		FindExSearchNameMatch, NULL, FIND_FIRST_EX_LARGE_FETCH);
 	if (dirp->handle == INVALID_HANDLE_VALUE)
 		goto error;
 

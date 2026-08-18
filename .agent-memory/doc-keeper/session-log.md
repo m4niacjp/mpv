@@ -53,3 +53,50 @@ Skipped:
 - Did not rewrite `DOCS/references/libraries/mpv.md` (doc-search owned).
 
 Pending: none for this change.
+
+## 2026-08-17 — documentation audit and references cleanup
+
+Comprehensive audit of `DOCS/`, `AGENTS.md`, and `README.md`:
+
+- Removed broken links and stale references to `.cursor/rules/mpv-lua-scripter.mdc` and `.cursor/agents/mpv-lua-scripter.md` (dropped in commit `c06acd0326`).
+- Fixed path formatting for Roaming configuration in `AGENTS.md`.
+- Updated prefetch commit SHA in `DOCS/local-workflow.md` to `496f5920bdab10e5ee2a93e0b4b09e072e07f7a3` (`player: add playlist-reorder for one-shot permutation`). Upstream `origin/master` (`7b8915bc1d04c7e1b61184e00c7fbfaab1911e75`) verified.
+- Verified `DOCS/interface-changes/` and `DOCS/man/` consistency for recent features (`playlist-reorder`, `prefetch-playlist-on-cache`, `autocreate-playlist`).
+- Verified formatting, links, and docutils generation (`rst2man`, `rst2html`) for `DOCS/man/mpv.rst`.
+
+Changed:
+- `AGENTS.md`: Remove broken `.cursor/rules/mpv-lua-scripter.mdc` link; fix Roaming path formatting.
+- `DOCS/local-workflow.md`: Update committed prefetch work hash to `496f5920bdab10e5ee2a93e0b4b09e072e07f7a3`; update tracked onboarding set sentence (remove `.cursor` agent/rules references).
+
+Left unchanged (already current and verified):
+- `DOCS/interface-changes/playlist-reorder.txt`
+- `DOCS/interface-changes/prefetch-playlist-on-cache.txt`
+- `DOCS/interface-changes/autocreate-playlist.txt`
+- `DOCS/man/input.rst`
+- `DOCS/man/options.rst`
+- `DOCS/man/mpv.rst`
+- `README.md`
+
+Skipped:
+- Did not rewrite `DOCS/references/libraries/*.md` (doc-search owned).
+- Did not create `docs/` or `DOCS/Internal.md`.
+
+Pending: none.
+
+## 2026-08-17 — manpage restore, references index, and layout review
+
+1. Restored missing `DOCS/man/mpv.rst` from git working tree and verified all 19 included `.rst` sub-manpages exist.
+2. Created `DOCS/references/README.md` cataloging and describing the roles and scope of `DOCS/references/libraries/` (`ffmpeg.md`, `libplacebo.md`, `mpv.md`).
+3. Reviewed the `DOCS/` layout for canonical uppercase directory usage; corrected lowercase `docs/references/...` paths in `.agent-memory/doc-search/MEMORY.md`.
+4. Verified docutils generation (`rst2man`, `rst2html`) using `TOOLS/docutils-wrapper.py` with `--halt=2` on `DOCS/man/mpv.rst` (built cleanly with zero errors/warnings). Verified standalone `.rst` syntax across `DOCS/`.
+
+Changed:
+- `DOCS/man/mpv.rst`: Restored master manpage entrypoint.
+- `DOCS/references/README.md`: Created index file for `DOCS/references/` and library summaries.
+- `.agent-memory/doc-search/MEMORY.md`: Updated lowercase `docs/` references to canonical uppercase `DOCS/`.
+
+Left unchanged (verified):
+- `DOCS/references/libraries/*.md` (doc-search owned bodies preserved)
+- `AGENTS.md` and `README.md` entrypoint references
+
+Pending: none.

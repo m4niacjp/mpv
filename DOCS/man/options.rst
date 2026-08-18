@@ -4407,6 +4407,12 @@ Demuxer
     item by mpv. HLS prefetching depends on the demuxer cache settings and is
     on by default.
 
+    When prefetching is active and ``--sub-auto``, ``--audio-file-auto``, or
+    ``--cover-art-auto`` is enabled, companion external files are discovered
+    asynchronously in the background during the prefetch step so they can be
+    adopted immediately without synchronous directory scanning latency at
+    track transitions.
+
     Playlist edits (``playlist-move``, ``playlist-reorder``,
     ``playlist-shuffle``, ``playlist-unshuffle``, ``playlist-remove``,
     ``playlist-clear``) retarget prefetch to the new next entries and drop
@@ -4419,10 +4425,12 @@ Demuxer
     ``INT_MAX``. The default preserves the previous behavior of prefetching
     only the next entry.
 
-    Entries are opened one at a time, but retained prefetched demuxers can fill
-    their bounded caches concurrently. ``--prefetch-playlist-cache-secs`` and
-    ``--prefetch-playlist-cache-bytes`` apply to each prefetched entry, so a
-    higher value can multiply disk or network I/O and memory use.
+    Entries are opened one at a time, and future entries use a tiered caching model.
+    The immediate next entry (position 1) expands toward ``--prefetch-playlist-cache-secs``
+    and ``--prefetch-playlist-cache-bytes`` after its initial start window is ready.
+    Subsequent retained entries (positions 2 and beyond) remain bounded within their
+    compact start window (``--prefetch-playlist-start-secs`` /
+    ``--prefetch-playlist-start-bytes``) to conserve RAM until they advance to position 1.
 
     Prefetching the immediate next entry first fills a small start window
     (see ``--prefetch-playlist-start-secs`` / ``--prefetch-playlist-start-bytes``)

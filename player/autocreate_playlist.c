@@ -62,7 +62,7 @@ static void autocreate_finish(void *p)
         int cur_in_scan = -1;
 
         for (int n = 0; n < job->pl->num_entries; n++) {
-            if (strcmp(job->pl->entries[n]->filename, current->filename) == 0) {
+            if (mp_path_compare(job->pl->entries[n]->filename, current->filename) == 0) {
                 cur_in_scan = n;
                 break;
             }
