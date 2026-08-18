@@ -100,3 +100,35 @@ Left unchanged (verified):
 - `AGENTS.md` and `README.md` entrypoint references
 
 Pending: none.
+
+## 2026-08-18 — canonical fork and reviewed upstream integration
+
+Documented the personal fork as the canonical clone/publish repository and the
+official mpv repository as a comparison-only upstream source.
+
+Changed:
+- `AGENTS.md`: Added the canonical `origin` / comparison `upstream` rule and a
+  pointer to the staged import procedure.
+- `DOCS/local-workflow.md`: Replaced the old remote layout and direct update
+  instructions with conventional remote naming, clean-baseline and backup
+  requirements, commit-range/path overlap review, staging-branch integration,
+  focused/full tests, Windows targeted build and `dist/` deployment, applicable
+  real `X:\XXX\Best` verification, and remote-SHA proof.
+- `DOCS/local-workflow.md`: Recorded that `%APPDATA%\mpv`, including
+  `scripts\playlist-sort.lua`, is outside this repository and must be preserved
+  and tested separately.
+- `DOCS/references/libraries-docs.md`: Generated the current library metadata
+  index from all three library-doc frontmatter blocks.
+- `DOCS/references/README.md`: Linked the generated library metadata index.
+- `.agent-memory/doc-keeper/MEMORY.md`: Recorded the durable remote and
+  integration policy.
+
+Verified:
+- `origin` points to `https://github.com/m4niacjp/mpv.git`, `upstream` points to
+  `https://github.com/mpv-player/mpv`, `master` tracks `origin/master`, and
+  `branch.master.vscode-merge-base` is `upstream/master`.
+- All relative Markdown links in changed documentation resolve.
+- All three library reference files contain the required frontmatter fields.
+- `git diff --check` passes; changed documentation remains below 500 lines.
+
+Pending: none.

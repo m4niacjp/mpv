@@ -2,6 +2,10 @@
 
 This directory contains reference materials, external library summaries, and subsystem integration guides used by developers and documentation workflows.
 
+The generated [library metadata index](libraries-docs.md) records the version
+scope, Context7 identifier, and verification date from each library document's
+frontmatter.
+
 ## Library References
 
 Curated summaries for external dependencies and core runtime subsystems are located under [`libraries/`](libraries/):

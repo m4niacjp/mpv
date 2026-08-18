@@ -80,6 +80,11 @@ nearby tests to establish what is actually exercised.
   Windows/MinGW compatibility. New Apple Cocoa code must be Swift.
 - Run `pre-commit run --all-files` for whitespace and spelling hooks when
   practical. Do not weaken tests or checks to make a failure disappear.
+- Treat `https://github.com/m4niacjp/mpv.git` as canonical `origin` and
+  `https://github.com/mpv-player/mpv.git` as comparison-only `upstream`.
+  Never import upstream with a blind pull or direct merge into `master`; follow
+  the staged review, verification, and remote-SHA proof in
+  [DOCS/local-workflow.md](DOCS/local-workflow.md#reviewing-and-importing-upstream-changes).
 - Unit tests are normally named after their subject; libmpv integration tests
   use `libmpv_test_*.c`, and expected output belongs in `test/ref/`.
 - User-visible behavior belongs in `DOCS/man/`; incompatible interfaces require

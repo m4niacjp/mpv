@@ -18,96 +18,187 @@ deployment command in [AGENTS.md](../AGENTS.md#this-windows-checkout-targeted-bu
 It builds `mpv.exe` and `mpv.com` only, then refreshes the packaged binaries.
 Do not treat that machine-specific command as the general upstream build path.
 
-## Remotes
+## Repository identity and remotes
 
-Keep `origin` pointed at upstream mpv for fetches:
+The canonical clone and publication repository for this checkout is the
+personal fork:
 
-```powershell
-git remote set-url origin https://github.com/mpv-player/mpv
+```text
+https://github.com/m4niacjp/mpv.git
 ```
 
-Keep `fork` pointed at the personal fork for pushes:
+Use conventional remote names: `origin` is that fork and `upstream` is the
+official mpv repository. Local `master` tracks `origin/master`; it must not
+track `upstream/master`.
 
 ```powershell
-git remote add fork https://github.com/m4niacjp/mpv.git
-```
-
-If the fork repository does not exist yet, create it from this checkout and add
-the remote in one step:
-
-```powershell
-gh repo fork --remote --remote-name fork
-```
-
-If `fork` already exists, confirm or repair it:
-
-```powershell
+git remote set-url origin https://github.com/m4niacjp/mpv.git
+git remote set-url upstream https://github.com/mpv-player/mpv.git
+git branch --set-upstream-to=origin/master master
 git remote -v
-git remote set-url fork https://github.com/m4niacjp/mpv.git
+git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}'
 ```
 
-## Updating the fork
-
-Fetch both remotes, then compare the upstream and fork branches before making
-local history changes:
+For a new checkout, clone the fork first and then add the official source:
 
 ```powershell
-git fetch origin
-git fetch fork
-git rev-parse origin/master fork/master
+git clone https://github.com/m4niacjp/mpv.git
+Set-Location mpv
+git remote add upstream https://github.com/mpv-player/mpv.git
 ```
 
-Upstream `origin/master` was last verified at:
-
-```text
-7b8915bc1d04c7e1b61184e00c7fbfaab1911e75
-```
-
-`fork/master` tracks local `master`, which is `origin/master` plus local
-prefetch commits. Committed prefetch work currently ends at:
-
-```text
-496f5920bdab10e5ee2a93e0b4b09e072e07f7a3
-```
-
-That includes on-cache start, `--prefetch-playlist-max` /
-`--prefetch-playlist-realtime`, playlist-edit retarget (drop retained
-demuxers that left the next window after `playlist-move`, `playlist-reorder`,
-shuffle, unshuffle, remove, or clear, then prefetch the new next files),
-two-phase prefetch start-window options (`--prefetch-playlist-start-secs`
-default 10, `--prefetch-playlist-start-bytes` default 32MiB; both 0 =
-immediate full-cache fill), and async `--autocreate-playlist` for local
-regular files (open the media file first; sibling scan on a worker; core
-bulk-splices remaining entries). Refresh this hash
-from `git rev-parse` after further prefetch commits land.
-
-If the fork falls behind upstream and the local worktree is clean, fast-forward
-the fork from upstream and push it:
+For the older `origin` = official, `fork` = personal layout, migrate once with:
 
 ```powershell
-git switch master
-git merge --ff-only origin/master
-git push fork master
+git remote rename origin upstream
+git remote rename fork origin
+git branch --set-upstream-to=origin/master master
 ```
 
-If local committed `HEAD` is already included in `origin/master`, the fork can
-also be updated directly from the fetched upstream ref without changing the
-local branch or touching a dirty worktree:
+Keep editor comparison metadata pointed at `upstream/master` when it is used:
 
 ```powershell
-git merge-base --is-ancestor HEAD origin/master
-git push fork origin/master:master
+git config branch.master.vscode-merge-base upstream/master
 ```
 
-If the worktree is dirty, especially when local source changes overlap upstream
-updates, do not merge, rebase, reset, or stash automatically. First inspect the
-dirty files and decide whether to commit the local work, split it, or park it in
-a named stash:
+## Reviewing and importing upstream changes
+
+Do not use a blind `git pull`, merge upstream directly into `master`, or assume
+a conflict-free merge preserves local behavior. Fetch explicitly, review both
+commit ranges and changed paths, integrate on a temporary branch, and verify
+before publishing.
+
+### 1. Establish a recoverable baseline
+
+Inspection fetches are safe, but do not start integration with uncommitted
+changes. Preserve unrelated work instead of resetting it. Commit and push the
+intended baseline, or deliberately park unfinished work in a named stash, then
+create a backup ref:
 
 ```powershell
 git status --short
 git diff --name-only
+git switch master
+git fetch --prune origin
+git fetch --prune upstream
+git merge --ff-only origin/master
+$stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+git branch "backup/pre-upstream-$stamp" master
 ```
+
+The `git merge --ff-only origin/master` above only synchronizes the already
+fetched canonical fork branch; it does not import official upstream changes.
+Stop if the worktree is dirty, the fast-forward fails, or local `master`
+differs unexpectedly from `origin/master`.
+
+### 2. Review the incoming and local ranges
+
+Compute the merge base and inspect the two sides independently:
+
+```powershell
+$base = git merge-base origin/master upstream/master
+git log --oneline --decorate "$base..upstream/master"
+git diff --stat "$base..upstream/master"
+git diff --name-status "$base..upstream/master"
+git log --oneline --decorate "$base..origin/master"
+git diff --name-status "$base..origin/master"
+$incoming = git diff --name-only "$base..upstream/master"
+$local = git diff --name-only "$base..origin/master"
+Compare-Object $incoming $local -IncludeEqual -ExcludeDifferent
+```
+
+An empty overlap report lowers merge risk but is not proof of behavioral
+compatibility. Review upstream commits that affect playback, playlists,
+directory scanning, demux/cache ownership, threading, Windows I/O, or option
+lifecycle even when the changed files differ. Local behavior is concentrated
+in `player/loadfile_async.c`, `player/autocreate_playlist.c`, other
+`player/loadfile*` files, `common/playlist.*`, `misc/path_utils.*`, and the
+Windows I/O layer; use the current diff rather than treating this list as
+exhaustive.
+
+### 3. Integrate in a staging branch
+
+For a routine upstream refresh, preserve both histories with a merge. This
+avoids rewriting already-published local commits:
+
+```powershell
+git switch -c "integrate/upstream-$stamp" master
+git merge --no-ff upstream/master
+```
+
+Resolve conflicts one subsystem at a time and compare each resolution against
+both parents. For a deliberately selected isolated fix, use `git cherry-pick
+-x <commit>` instead; do not cherry-pick a large upstream range as a substitute
+for reviewing it. Rebase is not the default because it rewrites the fork's
+published local history.
+
+After integration, repeat the path-overlap review and inspect the effective
+result:
+
+```powershell
+git diff --check
+git log --oneline master..HEAD
+git diff --stat master...HEAD
+```
+
+### 4. Verify behavior before promotion
+
+Run the tests for every affected subsystem, then the practical full mpv suite.
+Playlist/autocreate/prefetch changes must include the focused libmpv test when
+that target is configured:
+
+```powershell
+meson compile -C build
+meson test -C build libmpv-test-prefetch --print-errorlogs
+meson test -C build --print-errorlogs
+```
+
+Apply the known local environment caveats below only after verifying that a
+failure matches the documented signature. Do not weaken or skip a newly failing
+check merely because the merge was conflict-free.
+
+On this Windows checkout, finish with the targeted `mpv.exe` / `mpv.com` build,
+copy both files to `dist/`, and run the `--no-config --version` smoke check from
+[AGENTS.md](../AGENTS.md#this-windows-checkout-targeted-build-and-deployment).
+
+When upstream touches playlist, autocreate, prefetch, stream/demux/cache, or
+Windows filesystem behavior, also exercise the deployed binary against
+`X:\XXX\Best`. Verify initial open and playlist-next latency, demuxer adoption,
+unexpected stale/wrong-prefetch cancellation, and CPU/disk activity. Compare an
+uncached file and a warm repeat when practical. Do not delete the entire rclone
+VFS cache merely to manufacture a cold run; choose an uncached file or obtain
+explicit approval for isolated cache eviction.
+
+### 5. Promote and prove the published result
+
+Only after review and verification pass, fast-forward `master` to the staging
+branch and push the canonical repository:
+
+```powershell
+$integration = git branch --show-current
+git switch master
+git merge --ff-only $integration
+git push origin master
+git fetch origin
+$localSha = git rev-parse master
+$remoteSha = (git ls-remote origin refs/heads/master).Split()[0]
+if ($localSha -ne $remoteSha) { throw 'origin/master does not match local master' }
+git rev-list --left-right --count master...origin/master
+```
+
+Record the upstream range, overlapping paths, conflict decisions, tests, real
+mount checks when applicable, and matching local/remote SHA in the integration
+report or commit notes.
+
+## Personal runtime configuration
+
+`C:\Users\andre\AppData\Roaming\mpv\` is outside this repository. Files such
+as `mpv.conf`, `input.conf`, and `scripts\playlist-sort.lua` are active local
+runtime configuration, but cloning, committing, or pushing
+`https://github.com/m4niacjp/mpv.git` does not preserve them. Back them up or
+version them separately, and include them in compatibility testing when an
+upstream import changes options, Lua events, playlist commands, or prefetch
+behavior.
 
 The tracked onboarding set is `AGENTS.md` and `DOCS/local-workflow.md`. Keep
 unrelated local tooling and build artifacts out of scope unless the task
