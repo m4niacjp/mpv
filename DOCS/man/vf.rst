@@ -766,8 +766,15 @@ Available mpv-only filters are:
         of the d3d11 frame.
 
     ``nvidia-true-hdr``
-        Enable NVIDIA RTX Video HDR processing. This only converts SDR to HDR,
-        so it is ignored when the source is already HDR.
+        Enable NVIDIA RTX Video HDR processing. This is a ``d3d11vpp`` filter
+        parameter, not a top-level mpv option. In ``mpv.conf`` it can be
+        enabled with ``vf=d3d11vpp=nvidia-true-hdr`` (or
+        ``vf=d3d11vpp=nvidia-true-hdr=yes``).
+
+        For the NVIDIA RTX Video VSR/HDR path, use ``vo=gpu-next`` with
+        ``gpu-api=d3d11``, ``gpu-context=d3d11``, and ``hwdec=d3d11va``.
+        This only converts SDR to HDR, so it is ignored when the source is
+        already HDR.
 
 ``amf_frc``
     AMD Frame Rate Conversion filter. Requires AMD hardware and drivers

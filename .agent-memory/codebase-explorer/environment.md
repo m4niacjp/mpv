@@ -1,9 +1,7 @@
 ---
 name: environment
-description: Local OS/shell/build hints for this mpv checkout
-type: project
+description: Local OS, shell, Python, and C/Meson toolchain hints
+type: reference
 ---
 
-- OS: Windows 11; shell: PowerShell
-- Build: Meson + Ninja; VS x64 via vcvars64; packaged binaries in `dist/`
-- User runtime config (not in repo): `C:\Users\andre\AppData\Roaming\mpv\`
+Windows checkout; PowerShell 7 shell. Project is C11 and Meson-based. See AGENTS.md for documented portable and Windows-targeted build commands.

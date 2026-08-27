@@ -1,5 +1,5 @@
-- [Environment](environment.md) — OS, shell, toolchain hints
-- [Doc locations](doc_locations.md) — where docs live for this checkout
-- [Project structure](project_structure.md) — top-level folder map
+- [Environment](environment.md) — local OS and build/toolchain hints
+- [Documentation locations](doc_locations.md) — project documentation map
+- [Project structure](project_structure.md) — repository folder skeleton and skip dirs
 - [Architecture notes](architecture_notes.md) — subsystem orientation
-- [Rules](rules.md) — project-specific explorer constraints
+- [Project rules](rules.md) — project-specific constraints

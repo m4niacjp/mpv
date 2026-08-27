@@ -1,10 +1,13 @@
 ---
-name: rules
-description: Explorer constraints for this project
+name: project rules
+description: Project-specific rules not otherwise indexed
 type: project
 ---
 
-## Scope
-- Roaming Lua/config: document locations only; parent routes edits to mpv-lua-scripter.
-## Visual quality
-- For High Detail, read Roaming `mpv.conf` `[detail-high]` and `Docs/Reference/QUICK_MENU.md`.
+## Source and docs
+
+Verify implementation details against current source; user-visible behavior belongs in DOCS/man/.
+
+## Build and tests
+
+Use Meson. Prefer focused tests and the Windows targeted player build documented in AGENTS.md when runtime behavior is affected.

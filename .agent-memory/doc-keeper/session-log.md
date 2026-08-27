@@ -132,3 +132,43 @@ Verified:
 - `git diff --check` passes; changed documentation remains below 500 lines.
 
 Pending: none.
+
+## 2026-08-18 — index Meson library reference
+
+`doc-search` added `DOCS/references/libraries/meson.md`. Regenerated the
+library metadata index from all four frontmatter blocks (FFmpeg, libplacebo,
+Meson, mpv). Catalog table in `DOCS/references/README.md` now lists every
+`libraries/*.md` file.
+
+Changed:
+- `DOCS/references/libraries-docs.md`: Added Meson row from frontmatter
+  (`meson`/`mesonbuild`, meson_version >=1.3.0 / checkout 1.11.1,
+  `/mesonbuild/meson`, last_verified 2026-08-18).
+- `DOCS/references/README.md`: Added Meson catalog row (build system;
+  `b_coverage` / test / `ninja coverage-*` reports).
+
+Left unchanged:
+- `DOCS/references/libraries/meson.md` (doc-search owned; body not rewritten).
+- `AGENTS.md` (does not claim the index lists every library).
+
+Pending: none.
+
+## 2026-08-20 — RTX VSR and Video HDR documentation
+
+Documented the corrected NVIDIA RTX Video setup and kept the local-script
+boundary explicit:
+
+Changed:
+- `DOCS/man/vf.rst`: clarified that `nvidia-true-hdr` is a `d3d11vpp`
+  parameter, added its `mpv.conf` syntax, and recorded the required
+  `gpu-next`/D3D11/D3D11VA configuration.
+- `DOCS/optimization_implementation.md`: added the RTX VSR/HDR integration
+  notes, including `rtx-video-auto.lua` format-property fallback behavior.
+- `AGENTS.md`: added the agent-facing RTX configuration and scripting guardrails.
+- `.agent-memory/doc-keeper/MEMORY.md`: recorded the durable RTX facts.
+
+Verified against `video/filter/vf_d3d11vpp.c` and the local
+`%APPDATA%\mpv\scripts\rtx-video-auto.lua`; the Roaming script and
+`mpv.conf` were read only and not edited.
+
+Pending: none.

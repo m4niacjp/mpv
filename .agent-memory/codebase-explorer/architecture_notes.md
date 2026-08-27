@@ -1,7 +1,7 @@
 ---
 name: architecture notes
-description: Where visual quality and user detail modes live
-type: project
+description: Lightweight orientation of major mpv subsystems
+type: reference
 ---
 
-Upstream quality presets: `etc/builtin.conf` (`high-quality`, `fast`). Option docs: `DOCS/man/options.rst`. User High/Low Detail: Roaming `[detail-high]`/`[detail-low]` + `quick-menu.lua` + `remember-rtx.lua`. RTX AI upscale: Roaming `rtx-video-auto.lua` via `d3d11vpp`, orthogonal to detail profiles.
+Playback and command orchestration live in player, input, and options. Media processing is divided among audio, video, sub, filters, demux, and stream. Rendering and presentation live under video/out, including Direct3D 11, legacy GPU, and GPU-next paths; public embedding interfaces live under include/mpv and player/client.c.

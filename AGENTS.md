@@ -110,6 +110,14 @@ This routing does not apply to built-in `player/lua/` or normal upstream C/Meson
 work. Roaming `*.lua` client names replace non-alphanumeric characters with `_`
 (`playlist-sort.lua` is `playlist_sort` for `script-message-to`).
 
+The local RTX Video setup requires `vo=gpu-next`, `gpu-api=d3d11`,
+`gpu-context=d3d11`, and `hwdec=d3d11va`. `nvidia-true-hdr` is a `d3d11vpp`
+filter parameter (`vf=d3d11vpp=nvidia-true-hdr`), not a top-level `mpv.conf`
+option. `rtx-video-auto.lua` must check both `video-params/hw-pixelformat` and
+`video-params/pixelformat`; with `d3d11va`, the hardware property can be the
+only usable format value. See the [RTX Video notes](DOCS/optimization_implementation.md)
+for the full integration details.
+
 For local playlist-prefetch testing, the Roaming `mpv.conf` may set
 `prefetch-playlist-on-cache=yes`, `prefetch-playlist-cache-secs=<seconds>`,
 `prefetch-playlist-cache-bytes=<bytesize>`, `prefetch-playlist-max`,

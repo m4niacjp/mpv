@@ -24,6 +24,16 @@
 - repo_doc: DOCS/references/libraries/ffmpeg.md
 - notes: Checkout pins bd98801 (Meson wrap meson-8.1; libavformat 62.12.100/libavcodec 62.28.100). Context7 has no 8.1 Doxygen ID; prefer 8.0 over 4.4/7.0. User options live under /websites/ffmpeg_documentation (ffmpeg-all.html). In mpv lavf MKV open, mpv probes from the start before forced avformat_open_input; Matroska read_header stops at the first Cluster, parses non-Cues SeekHead entries via random seeks, and defers Cues. Default lavf auto skips find_stream_info via Matroska skipinfo; AVSEEK_SIZE is a metadata size query; tail I/O is not unconditional at open. D3D11VA device/frames setup is codec-side and does not read the file.
 
+### Meson
+- aliases: mesonbuild, meson build system
+- ecosystem: python / build-system
+- package_names: meson, mesonbuild
+- context7_id: `/mesonbuild/meson`
+- version_ids: []
+- last_verified: 2026-08-18
+- repo_doc: DOCS/references/libraries/meson.md
+- notes: Official mesonbuild/meson docs. `/mesonbuild/meson-python` is a different package. Coverage: `-Db_coverage=true`; reports via ninja coverage-html/xml after meson test; Clang uses llvm-cov since 0.55.0. No MSVC/Windows coverage claim in ctx7. mpv meson_version >=1.3.0; local mesonbuild 1.11.1.
+
 ### libplacebo
 - aliases: placebo, pl_
 - ecosystem: c / gpu-rendering

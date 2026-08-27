@@ -413,7 +413,8 @@ rclone mount remote: X: ^
 
 # --- 1. GPU & VO Context Persistence (0ms display reinitialization) ---
 vo=gpu-next
-gpu-context=d3d11                         # Use 'vulkan' or 'waylandvk' on Linux
+gpu-api=d3d11
+gpu-context=d3d11                         # Required for the RTX D3D11 path
 gpu-shader-cache-dir="~~/shader_cache"    # Disk persistent shader compilation cache
 allow-delayed-peak-detect=yes             # 1-frame delayed HDR peak measurement (no sync stall)
 hwdec=d3d11va                             # Direct zero-copy hardware decoding
@@ -523,6 +524,40 @@ gapless-audio=no
 video-sync=display-resample
 audio-pitch-correction=yes
 ```
+
+---
+
+### 4.6 RTX Video VSR/HDR integration (D3D11)
+
+The RTX Video path uses the ``d3d11vpp`` filter with a D3D11 GPU pipeline.
+The baseline configuration is:
+
+```ini
+vo=gpu-next
+gpu-api=d3d11
+gpu-context=d3d11
+hwdec=d3d11va
+```
+
+`nvidia-true-hdr` belongs to ``d3d11vpp``; it is not a top-level mpv option.
+To enable it directly in `mpv.conf`, use:
+
+```ini
+vf=d3d11vpp=nvidia-true-hdr
+```
+
+In this checkout, `%APPDATA%\mpv\scripts\rtx-video-auto.lua` adds and removes
+the labelled ``d3d11vpp`` filter for VSR and HDR automatically. Its format
+check must consider both `video-params/hw-pixelformat` and
+`video-params/pixelformat`: with `d3d11va`, the usable surface format is
+reported through the hardware-pixel-format property. The script checks the
+hardware property first, then falls back to the software property (and the
+track format name), so hardware-decoded NV12/P010/D3D11 frames are not
+mistakenly rejected.
+
+The script enables NVIDIA VSR with `scaling-mode=nvidia` when upscaling and
+requests `nvidia-true-hdr=yes` only for SDR input. Already-HDR sources are
+left unchanged by the HDR path.
 
 ---
 
