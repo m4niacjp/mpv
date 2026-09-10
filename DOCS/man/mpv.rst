@@ -78,6 +78,9 @@ Ctrl+Shift+LEFT and Ctrl+Shift+RIGHT
 BACKSPACE
     Reset playback speed to normal.
 
+Ctrl+1, Ctrl+2, Ctrl+3, Ctrl+4 and Ctrl+5
+    Set playback speed to 0.25x, 0.5x, 0.75x, 1x (normal) and 2x.
+
 Shift+BACKSPACE
     Undo the last seek. This works only if the playlist entry was not changed.
     Hitting it a second time will go back to the original position.
