@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "collectedAt": "2026-09-11T09:07:50.7292799+00:00",
+  "os": {
+    "version": "10.0.26220",
+    "build": "26220",
+    "caption": "Microsoft Windows 11 Pro Insider Preview",
+    "architecture": "X64"
+  },
+  "cpu": [
+    {
+      "name": "AMD Ryzen 9 9950X3D 16-Core Processor          ",
+      "cores": 16,
+      "logicalProcessors": 32
+    }
+  ],
+  "ramBytes": 102741454848,
+  "elevated": true,
+  "toolInventory": {
+    "tools": [
+      {
+        "name": "wpr",
+        "path": "C:\\WINDOWS\\system32\\wpr.exe",
+        "version": "10.0.26100.9306 (WinBuild.160101.0800)",
+        "available": true,
+        "candidates": [
+          "C:\\WINDOWS\\system32\\wpr.exe",
+          "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\wpr.exe"
+        ]
+      },
+      {
+        "name": "wpa",
+        "path": "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\wpa.exe",
+        "version": "11.7.395.48728",
+        "available": true,
+        "candidates": [
+          "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\wpa.exe"
+        ]
+      },
+      {
+        "name": "wpaexporter",
+        "path": "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\wpaexporter.exe",
+        "version": "11.7.395.48728",
+        "available": true,
+        "candidates": [
+          "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\wpaexporter.exe"
+        ]
+      },
+      {
+        "name": "xperf",
+        "path": "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\xperf.exe",
+        "version": "10.0.26100.8249 (WinBuild.160101.0800)",
+        "available": true,
+        "candidates": [
+          "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\xperf.exe"
+        ]
+      },
+      {
+        "name": "gpuview",
+        "path": "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\gpuview\\gpuview.exe",
+        "version": "10.0.26100.8249",
+        "available": true,
+        "candidates": [
+          "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\gpuview\\gpuview.exe"
+        ]
+      },
+      {
+        "name": "procmon",
+        "path": "C:\\Users\\andre\\Desktop\\Mem\\ProcMon\\Procmon64.exe",
+        "version": "4.11",
+        "available": true,
+        "candidates": [
+          "C:\\Users\\andre\\Desktop\\Mem\\ProcMon\\Procmon64.exe",
+          "C:\\Users\\andre\\Desktop\\Mem\\ProcMon\\Procmon.exe",
+          "C:\\Users\\andre\\Desktop\\Mem\\ProcMon\\Procmon64a.exe"
+        ]
+      }
+    ],
+    "hostArchitecture": "X64",
+    "powershellVersion": "7.6.6"
+  }
+}

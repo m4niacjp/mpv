@@ -1,0 +1,5 @@
+"Time of Day","Process Name","PID","Operation","Path","Result","Detail","Duration","TID"
+"4:37:41.3751039 PM","mpv.exe","999","CreateFile","\\server\RcloneWcrypt\share\dir","SUCCESS","Desired Access: Read Data/List Directory, Synchronize, Disposition: Open, Options: Directory, OpenResult: Opened","0.0000690","47792"
+"4:37:41.3747679 PM","mpv.exe","999","CreateFile","\\server\RcloneWcrypt\share\dir","SUCCESS","Desired Access: Read Attributes, Disposition: Open, Options: Open Reparse Point, OpenResult: Opened","0.0000700","47792"
+"4:37:40.5000000 PM","other.exe","111","CreateFile","\\server\RcloneWcrypt\share\dir\media-003.mkv","SUCCESS","Desired Access: Read Attributes","9.9990000","1"
+"4:37:40.6000000 PM","mpv.exe","999","CreateFile","C:\unrelated\path.mkv","SUCCESS","Desired Access: Read Attributes","0.0100000","47792"

@@ -1,0 +1,133 @@
+{
+  "bench": {
+    "capturedUtc": "2026-09-12T03:47:58.726301+07:00",
+    "os": "Microsoft Windows 11 Pro Insider Preview build 26220 10.0.26220",
+    "lastBoot": "2026-09-12T03:04:51.5+07:00",
+    "uptime": "00:43:07.2306262",
+    "cpu": "AMD Ryzen 9 9950X3D 16-Core Processor          ",
+    "logicalProcessors": 32,
+    "ramGB": 95.7,
+    "gpu": "NVIDIA GeForce RTX 5070 Ti",
+    "freeCGB": 548.8,
+    "freeDGB": 1405.2,
+    "gitHead": "2b0f9f46ca8c6dd8aa0a8103eb4285c543db2cf1",
+    "gitStatus": [
+      " M DOCS/optimization_implementation.md",
+      " M osdep/io.c",
+      " M test/libmpv_test_prefetch.c",
+      "?? .agent-memory/doc-search/libraries/",
+      "?? .agent-memory/windows-performance-debugging/",
+      "?? .playwright-cli/",
+      "?? DOCS/references/libraries/win32-shell/",
+      "?? benchmarks/",
+      "?? dist/",
+      "?? install.cmd",
+      "?? remember-rtx.state"
+    ],
+    "mpvVersion": "mpv v0.41.0-947-gd37b8c1a7-dirty Copyright © 2000-2026 mpv/MPlayer/mplayer2 projects",
+    "mpvExe": {
+      "path": "C:\\Users\\andre\\Projects\\mpv\\dist\\mpv.exe",
+      "sha256": "587027333113EF9C3EC13A0E619A131CAC3243144CCD35BC2174AC73BEC2A302",
+      "lastWriteUtc": "2026-09-11T11:24:25.7276808Z"
+    },
+    "rclonePids": [
+      {
+        "pid": 29148,
+        "started": "2026-09-12T03:06:04.246078+07:00",
+        "cmd": "\"C:\\ProgramData\\Rclone\\bin\\rclone.exe\" mount wcrypt: I: --network-mode --volname RcloneWcrypt -o FileSecurity=D:P(A;;FA;;;WD) -o ThreadCount=64 -o FileInfoTimeout=-1 -o DirInfoTimeout=300000 -o VolumeInfoTimeout=60000 -o KeepFileCache --vfs-cache-mode full --vfs-cache-max-size 1000G --vfs-cache-min-free-space 200G --vfs-cache-max-age 8760h --vfs-read-chunk-size 1M --vfs-read-chunk-size-limit 256M --vfs-read-chunk-streams 0 --vfs-fast-fingerprint --vfs-handle-caching 60s --buffer-size 0 --vfs-read-ahead 0 --dir-cache-time 72h --poll-interval 0 --attr-timeout 5s --transfers 240 --checkers 240 --s3-chunk-size 32M --s3-upload-concurrency 8 --vfs-refresh --config C:\\ProgramData\\Rclone\\config\\rclone.conf --cache-dir D:\\rclone-wasabi-cache --rc --rc-addr 127.0.0.1:5574 --rc-htpasswd C:\\ProgramData\\Rclone\\config\\rc.htpasswd --log-level INFO --log-file D:\\rclone-wasabi-cache\\logs\\rclone-mount-http.log --log-file-max-size 50M --log-file-max-backups 20"
+      },
+      {
+        "pid": 3480,
+        "started": "2026-09-12T03:08:24.364867+07:00",
+        "cmd": "\"C:\\ProgramData\\Rclone\\bin\\rclone.exe\" mount gcrypt: X: --network-mode --volname RcloneGcrypt -o FileSecurity=D:P(A;;FA;;;WD) -o ThreadCount=64 -o FileInfoTimeout=-1 -o DirInfoTimeout=300000 -o VolumeInfoTimeout=60000 -o KeepFileCache --vfs-cache-mode full --vfs-cache-max-size 1000G --vfs-cache-min-free-space 200G --vfs-cache-max-age 8760h --vfs-read-chunk-size 1M --vfs-read-chunk-streams 0 --vfs-read-chunk-size-limit 256M --buffer-size 0 --vfs-read-ahead 0 --dir-cache-time 72h --vfs-handle-caching 60s --poll-interval 5m --vfs-cache-poll-interval 5m --attr-timeout 30s --drive-skip-shortcuts --drive-use-trash --drive-chunk-size 64M --transfers 240 --checkers 240 --tpslimit 350 --tpslimit-burst 300 --drive-pacer-min-sleep 2ms --drive-pacer-burst 300 --vfs-refresh --config C:\\ProgramData\\Rclone\\config\\rclone.conf --cache-dir D:\\rclone-cache --rc --rc-addr 127.0.0.1:5572 --rc-htpasswd C:\\ProgramData\\Rclone\\config\\rc.htpasswd --log-level INFO --log-file D:\\rclone-cache\\logs\\rclone-mount-http.log --log-file-max-size 50M --log-file-max-backups 20"
+      }
+    ],
+    "wprSessions": [],
+    "procmonRunning": [],
+    "watchTools": []
+  },
+  "collectedAt": "2026-09-12T03:47:58.726301+07:00",
+  "tooling": {
+    "schemaVersion": 1,
+    "collectedAt": "2026-09-12T03:47:58.4494267+07:00",
+    "os": {
+      "version": "10.0.26220",
+      "build": "26220",
+      "caption": "Microsoft Windows 11 Pro Insider Preview",
+      "architecture": "X64"
+    },
+    "cpu": [
+      {
+        "name": "AMD Ryzen 9 9950X3D 16-Core Processor          ",
+        "cores": 16,
+        "logicalProcessors": 32
+      }
+    ],
+    "ramBytes": 102741454848,
+    "elevated": true,
+    "toolInventory": {
+      "tools": [
+        {
+          "name": "wpr",
+          "path": "C:\\WINDOWS\\system32\\wpr.exe",
+          "version": "10.0.26100.9306 (WinBuild.160101.0800)",
+          "available": true,
+          "candidates": [
+            "C:\\WINDOWS\\system32\\wpr.exe",
+            "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\wpr.exe"
+          ]
+        },
+        {
+          "name": "wpa",
+          "path": "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\wpa.exe",
+          "version": "11.7.395.48728",
+          "available": true,
+          "candidates": [
+            "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\wpa.exe"
+          ]
+        },
+        {
+          "name": "wpaexporter",
+          "path": "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\wpaexporter.exe",
+          "version": "11.7.395.48728",
+          "available": true,
+          "candidates": [
+            "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\wpaexporter.exe"
+          ]
+        },
+        {
+          "name": "xperf",
+          "path": "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\xperf.exe",
+          "version": "10.0.26100.8249 (WinBuild.160101.0800)",
+          "available": true,
+          "candidates": [
+            "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\xperf.exe"
+          ]
+        },
+        {
+          "name": "gpuview",
+          "path": "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\gpuview\\gpuview.exe",
+          "version": "10.0.26100.8249",
+          "available": true,
+          "candidates": [
+            "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\gpuview\\gpuview.exe"
+          ]
+        },
+        {
+          "name": "procmon",
+          "path": "C:\\Users\\andre\\Desktop\\Mem\\ProcMon\\Procmon64.exe",
+          "version": "4.11",
+          "available": true,
+          "candidates": [
+            "C:\\Users\\andre\\Desktop\\Mem\\ProcMon\\Procmon64.exe",
+            "C:\\Users\\andre\\Desktop\\Mem\\ProcMon\\Procmon.exe",
+            "C:\\Users\\andre\\Desktop\\Mem\\ProcMon\\Procmon64a.exe"
+          ]
+        }
+      ],
+      "hostArchitecture": "X64",
+      "powershellVersion": "7.6.6"
+    }
+  },
+  "schemaVersion": 1
+}

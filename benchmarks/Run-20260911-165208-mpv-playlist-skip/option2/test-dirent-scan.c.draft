@@ -1,0 +1,406 @@
+/*
+ * Draft - NOT applied to the repository. Intended final location:
+ *     test/libmpv_test_dirent_scan.c
+ * Registration: see meson-test-hunk.txt (suite 'libmpv', args: icon PNG).
+ *
+ * Autocreate playlist directory-scan equivalence test.
+ *
+ * The scan runs in demux/demux_playlist.c:scan_dir(). On Windows it either
+ * uses readdir()'s d_type (when _DIRENT_HAVE_D_TYPE is defined, i.e. MSVC and
+ * - after Option 2 - MinGW) or falls back to stat() per entry
+ * (working-tree lines 486-515 vs 530-546; the include-path shortcut at
+ * 519-528 was added by "Option 1" and must be preserved).
+ *
+ * This test is behavior-first: it asserts the playlist contents that both
+ * paths must produce, so it stays valid before and after Option 2, on MinGW,
+ * MSVC, and POSIX. The d_type activation itself is proven separately by the
+ * preprocess gate and the Procmon count in test-plan.md.
+ *
+ * Expected results are written as sorted basenames because mp_path_join()
+ * uses '/' and natural sort is lexicographic for these fixture names.
+ *
+ * Testability note: scan_dir() is static and playlist_autocreate_siblings()
+ * needs a full mpv_global, so the scanner cannot be unit-tested without
+ * exporting/refactoring production code. The least invasive path is this
+ * libmpv integration test, modeled on test/libmpv_test_prefetch.c's
+ * test_autocreate_playlist(): it drives the real loadfile -> autocreate
+ * worker -> scan_dir -> splice path through the public API.
+ */
+
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#ifdef _WIN32
+#include <direct.h>
+#include <process.h>
+#define mp_mkdir(path) _mkdir(path)
+#define mp_rmdir(path) _rmdir(path)
+#define mp_getpid() _getpid()
+#else
+#include <sys/stat.h>
+#include <unistd.h>
+#define mp_mkdir(path) mkdir((path), 0700)
+#define mp_rmdir(path) rmdir(path)
+#define mp_getpid() getpid()
+#endif
+
+#include "libmpv_common.h"
+
+#define PATHBUF 576
+
+static int autocreate_events;
+
+static void process_event(mpv_event *event)
+{
+    if (event->event_id != MPV_EVENT_LOG_MESSAGE)
+        return;
+
+    mpv_event_log_message *msg = event->data;
+    printf("[%s:%s] %s", msg->prefix, msg->level, msg->text);
+    if (msg->log_level <= MPV_LOG_LEVEL_ERROR)
+        fail("error was logged\n");
+    if (strstr(msg->text, "Autocreate playlist:"))
+        autocreate_events++;
+}
+
+static void wait_for_file_loaded(void)
+{
+    while (1) {
+        mpv_event *event = mpv_wait_event(ctx, 10);
+        if (event->event_id == MPV_EVENT_NONE)
+            fail("timed out waiting for the current file to load\n");
+        process_event(event);
+        if (event->event_id == MPV_EVENT_FILE_LOADED)
+            return;
+    }
+}
+
+static void drain_events(double timeout)
+{
+    while (1) {
+        mpv_event *event = mpv_wait_event(ctx, timeout);
+        if (event->event_id == MPV_EVENT_NONE)
+            break;
+        process_event(event);
+    }
+}
+
+static void reset_player(void)
+{
+    command_string("stop");
+    drain_events(1);
+    autocreate_events = 0;
+}
+
+static void wait_for_autocreate(void)
+{
+    int want = autocreate_events + 1;
+    while (autocreate_events < want) {
+        mpv_event *event = mpv_wait_event(ctx, 10);
+        if (event->event_id == MPV_EVENT_NONE)
+            fail("timed out waiting for the autocreate playlist splice\n");
+        process_event(event);
+    }
+}
+
+static const char *base_name(const char *path)
+{
+    const char *base = path;
+    for (const char *p = path; *p; p++) {
+        if (*p == '/' || *p == '\\')
+            base = p + 1;
+    }
+    return base;
+}
+
+static void expect_playlist(const char *const *names, int count)
+{
+    int64_t actual = -1;
+    get_property("playlist-count", MPV_FORMAT_INT64, &actual);
+    if (actual != count)
+        fail("playlist-count: expected %d, got %" PRId64 "\n", count, actual);
+
+    for (int n = 0; n < count; n++) {
+        char prop[32];
+        char *value = NULL;
+        snprintf(prop, sizeof(prop), "playlist/%d/filename", n);
+        get_property(prop, MPV_FORMAT_STRING, &value);
+        if (!value)
+            fail("playlist/%d/filename is empty\n", n);
+        if (strcmp(base_name(value), names[n]) != 0)
+            fail("playlist/%d: expected basename '%s', got '%s'\n",
+                 n, names[n], value);
+        mpv_free(value);
+    }
+}
+
+static void make_dir(const char *path)
+{
+    if (mp_mkdir(path) != 0 && errno != EEXIST)
+        fail("failed to create directory '%s'\n", path);
+}
+
+static void join_path(char *buf, size_t size, const char *dir, const char *name)
+{
+    if (snprintf(buf, size, "%s/%s", dir, name) >= (int)size)
+        fail("path too long: '%s/%s'\n", dir, name);
+}
+
+static void make_abs(char *buf, size_t size, const char *path)
+{
+#ifdef _WIN32
+    if (!_fullpath(buf, path, size))
+        fail("could not make path absolute: '%s'\n", path);
+#else
+    char cwd[PATHBUF];
+    if (!getcwd(cwd, sizeof(cwd)))
+        fail("getcwd failed\n");
+    if (snprintf(buf, size, "%s/%s", cwd, path) >= (int)size)
+        fail("path too long: '%s'\n", path);
+#endif
+}
+
+static void copy_file(const char *src, const char *dst)
+{
+    FILE *in = fopen(src, "rb");
+    FILE *out = fopen(dst, "wb");
+    if (!in || !out)
+        fail("failed to copy '%s' to '%s'\n", src, dst);
+
+    char buf[4096];
+    size_t n;
+    while ((n = fread(buf, 1, sizeof(buf), in)) > 0) {
+        if (fwrite(buf, 1, n, out) != n)
+            fail("failed writing '%s'\n", dst);
+    }
+    fclose(in);
+    fclose(out);
+}
+
+// Windows junctions are creatable without elevation; file symlinks usually
+// need developer mode/admin. Both cases are best-effort so the test still
+// runs (with a printed SKIP) where reparse points are unavailable.
+static bool make_junction(const char *link, const char *target)
+{
+#ifdef _WIN32
+    char cmd[2 * PATHBUF + 64];
+    snprintf(cmd, sizeof(cmd), "cmd /d /c mklink /J \"%s\" \"%s\"", link, target);
+    return system(cmd) == 0;
+#else
+    return symlink(target, link) == 0;
+#endif
+}
+
+static bool make_file_symlink(const char *link, const char *target)
+{
+#ifdef _WIN32
+    char cmd[2 * PATHBUF + 64];
+    snprintf(cmd, sizeof(cmd), "cmd /d /c mklink \"%s\" \"%s\"", link, target);
+    return system(cmd) == 0;
+#else
+    return symlink(target, link) == 0;
+#endif
+}
+
+static void set_scan_options(const char *filter, const char *dir_mode)
+{
+    set_property_string("autocreate-playlist", "filter");
+    set_property_string("directory-filter-types", filter);
+    set_property_string("directory-mode", dir_mode);
+    set_property_string("pause", "yes");
+    set_property_string("image-display-duration", "inf");
+    set_property_string("prefetch-playlist", "no");
+}
+
+static void load_fixture(const char *path)
+{
+    const char *cmd[] = {"loadfile", path, NULL};
+    command(cmd);
+    wait_for_file_loaded();
+    wait_for_autocreate();
+}
+
+// A directory whose name looks like a media file must not become a playlist
+// entry under directory-mode=ignore, while real media files in the same
+// directory must. A file that only matches a different directory filter must
+// stay excluded.
+static void test_ignore_dir_named_like_media(const char *icon)
+{
+    reset_player();
+
+    char root[PATHBUF], a[PATHBUF], b[PATHBUF], c[PATHBUF], real[PATHBUF];
+    char dir_named_mkv[PATHBUF];
+    snprintf(root, sizeof(root), "mpv-scan-ignore-%d", (int)mp_getpid());
+    make_dir(root);
+    join_path(a, sizeof(a), root, "a.png");
+    join_path(b, sizeof(b), root, "b.png");
+    join_path(c, sizeof(c), root, "c.png");
+    join_path(real, sizeof(real), root, "real.mkv");
+    join_path(dir_named_mkv, sizeof(dir_named_mkv), root, "dir.mkv");
+    copy_file(icon, a);
+    copy_file(icon, b);
+    copy_file(icon, c);
+    copy_file(icon, real);
+    make_dir(dir_named_mkv);
+
+    set_scan_options("image", "ignore");
+    load_fixture(b);
+
+    const char *expect[] = {"a.png", "b.png", "c.png"};
+    expect_playlist(expect, 3);
+
+    remove(a);
+    remove(b);
+    remove(c);
+    remove(real);
+    mp_rmdir(dir_named_mkv);
+    mp_rmdir(root);
+}
+
+// The playing file is always part of the scan (include path) even when its
+// extension does not match the directory filter. real.mkv is the only
+// extension match and sorts before z.png, so a correct scan yields
+// [real.mkv, z.png]. If the include path were dropped from the scan, the
+// splice would put the current file first: [z.png, real.mkv].
+static void test_include_path_order(const char *icon)
+{
+    reset_player();
+
+    char root[PATHBUF], a[PATHBUF], real[PATHBUF], z[PATHBUF];
+    snprintf(root, sizeof(root), "mpv-scan-inc-%d", (int)mp_getpid());
+    make_dir(root);
+    join_path(a, sizeof(a), root, "a.png");
+    join_path(real, sizeof(real), root, "real.mkv");
+    join_path(z, sizeof(z), root, "z.png");
+    copy_file(icon, a);
+    copy_file(icon, real);
+    copy_file(icon, z);
+
+    set_scan_options("video", "ignore");
+    load_fixture(z);
+
+    const char *expect[] = {"real.mkv", "z.png"};
+    expect_playlist(expect, 2);
+
+    remove(a);
+    remove(real);
+    remove(z);
+    mp_rmdir(root);
+}
+
+// directory-mode=recursive enters real subdirectories (even one named
+// "dir.mkv") and keeps the d_type/stat directory branch intact. Files sort
+// before directories, and directories are entered in name order.
+static void test_recursive_dirs(const char *icon)
+{
+    reset_player();
+
+    char root[PATHBUF], a[PATHBUF], sub[PATHBUF], inner[PATHBUF];
+    char dir_named_mkv[PATHBUF], inside[PATHBUF];
+    snprintf(root, sizeof(root), "mpv-scan-rec-%d", (int)mp_getpid());
+    make_dir(root);
+    join_path(a, sizeof(a), root, "a.png");
+    join_path(sub, sizeof(sub), root, "sub");
+    join_path(inner, sizeof(inner), sub, "inner.png");
+    join_path(dir_named_mkv, sizeof(dir_named_mkv), root, "dir.mkv");
+    join_path(inside, sizeof(inside), dir_named_mkv, "inside.png");
+    copy_file(icon, a);
+    make_dir(sub);
+    copy_file(icon, inner);
+    make_dir(dir_named_mkv);
+    copy_file(icon, inside);
+
+    set_scan_options("image", "recursive");
+    load_fixture(a);
+
+    const char *expect[] = {"a.png", "inside.png", "inner.png"};
+    expect_playlist(expect, 3);
+
+    remove(a);
+    remove(inner);
+    remove(inside);
+    mp_rmdir(sub);
+    mp_rmdir(dir_named_mkv);
+    mp_rmdir(root);
+}
+
+// Reparse points take the stat() fallback on Windows (d_type == DT_LNK), so
+// they must behave exactly as before: a junction to a directory is skipped
+// under directory-mode=ignore, a symlink to a regular file is included.
+static void test_reparse_points(const char *icon)
+{
+    reset_player();
+
+    char root[PATHBUF], abs_root[PATHBUF], a[PATHBUF], sub[PATHBUF];
+    char inner[PATHBUF], jdir[PATHBUF], link[PATHBUF];
+    snprintf(root, sizeof(root), "mpv-scan-link-%d", (int)mp_getpid());
+    make_dir(root);
+    make_abs(abs_root, sizeof(abs_root), root);
+    join_path(a, sizeof(a), abs_root, "a.png");
+    join_path(sub, sizeof(sub), abs_root, "sub");
+    join_path(inner, sizeof(inner), sub, "inner.png");
+    join_path(jdir, sizeof(jdir), abs_root, "jdir.mkv");
+    join_path(link, sizeof(link), abs_root, "link.png");
+    copy_file(icon, a);
+    make_dir(sub);
+    copy_file(icon, inner);
+
+    bool have_link = make_file_symlink(link, a);
+    if (!have_link)
+        printf("SKIP: file symlink not creatable without privilege; "
+               "continuing with the junction case\n");
+    bool have_junction = make_junction(jdir, sub);
+    if (!have_junction)
+        printf("SKIP: junction not creatable on this filesystem\n");
+
+    set_scan_options("image", "ignore");
+    load_fixture(a);
+
+    if (have_link) {
+        const char *expect[] = {"a.png", "link.png"};
+        expect_playlist(expect, 2);
+    } else {
+        const char *expect[] = {"a.png"};
+        expect_playlist(expect, 1);
+    }
+
+    remove(a);
+    if (have_link)
+        remove(link);
+    remove(inner);
+    if (have_junction)
+        mp_rmdir(jdir);
+    mp_rmdir(sub);
+    mp_rmdir(root);
+}
+
+int main(int argc, char *argv[])
+{
+    if (argc != 2)
+        return 1;
+
+    ctx = mpv_create();
+    if (!ctx)
+        return 1;
+
+    atexit(exit_cleanup);
+    set_property_string("idle", "yes");
+    initialize();
+
+    printf("================ TEST: ignore dir named like media ================\n");
+    test_ignore_dir_named_like_media(argv[1]);
+    printf("================ TEST: include path order ================\n");
+    test_include_path_order(argv[1]);
+    printf("================ TEST: recursive dirs ================\n");
+    test_recursive_dirs(argv[1]);
+    printf("================ TEST: reparse points ================\n");
+    test_reparse_points(argv[1]);
+
+    printf("================ SHUTDOWN ================\n");
+    command_string("quit");
+    while (wrap_wait_event()->event_id != MPV_EVENT_SHUTDOWN) {}
+
+    return 0;
+}

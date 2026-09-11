@@ -205,6 +205,46 @@ unrelated local tooling and build artifacts out of scope unless the task
 explicitly includes them; inspect the current worktree rather than relying on a
 clean-tree snapshot.
 
+## VFS cold/warm benchmark harness
+
+`benchmarks\vfs-bench\` is the checkout-local harness for the rclone/WinFsp VFS
+cold/warm first-frame and `playlist-next` measurements (completed report
+package: `benchmarks\Run-20260912-041416-mpv-vfs-cold-warm\`; session handoff:
+`benchmarks\vfs-bench\handoff.md`). Corpus and reports are under
+`C:\PerfBench`; run directories (trial JSON, logs, ETL/PML) are created under
+`C:\Users\andre\PerfRuns\mpv-vfs-*`.
+
+| Script | Role |
+| --- | --- |
+| `New-BenchVideos.ps1`, `Resume-BenchVideos.ps1`, `Verify-BenchMedia.ps1` | Generate `PB01`–`PB25` plus the warm-up clip, resume an interrupted generation, and full-decode verify before upload |
+| `Sync-BenchMedia.ps1` | Seed `wcrypt:PerformanceBench/{Cold,Warm}` with parallel RC `copyfile`, verify sizes, then refresh the mount root-first (`vfs/refresh`, then recursive) |
+| `Set-BenchCacheState.ps1` | Report `status` or enforce `cold` (delete the span's vfs data + vfsMeta) / `warm` (verify flushed `Rs` coverage is 100 %) |
+| `Invoke-BenchTrials.ps1` | Matrix driver (conditions including the `config-*-no-playlist-sort` A/B) with `-PlainRepeats`; toggles `playlist-sort.lua` with a hash-guarded restore |
+| `Summarize-BenchTrials.ps1`, `Analyze-ProcmonSwitch.ps1` | Per-trial CSV + per-condition JSON; playlist-next switch window from a Procmon CSV |
+| `bench-probe.lua`, `Measure-Load.ps1`, `VfsBench.psm1` | In-process driver/recorder, preflight load sampling, and shared helpers |
+
+Protocol invariants:
+
+- Run one mpv process at a time, and purge the system standby list before each
+  trial (authorized for this benchmark only).
+- A cold trial deletes the span's vfs data + metadata under the live rclone;
+  the 60 s `--vfs-handle-caching` grace must have expired (reused spans wait
+  another 15 s).
+- A warm trial is only valid with flushed `vfsMeta` `Rs` coverage of 100 %; the
+  on-disk metadata lags the in-memory item until the 60 s grace ends, so warm
+  verification settles and polls instead of checking immediately.
+- The rclone log is raised to DEBUG only during traced (WPR/Procmon) trials and
+  restored right after (filtered slice beside the trial JSON).
+- WPA exports use `-Marks workload-start,workload-end` (comma, no space; pass it
+  from PowerShell, not as a `pwsh -File` argument).
+- Keep raw ETL/PML and large Procmon CSVs outside Git; only the report package
+  belongs in the repository.
+
+The real-config arm reads `%APPDATA%\mpv`; the A/B conditions disable
+`playlist-sort.lua` by moving it out of `%APPDATA%\mpv\scripts` for the run
+(mpv probes every entry under `scripts\`, so renaming it in place would log
+"Can't load unknown script"); the move is hash-guarded and restored afterwards.
+
 ## Test suite caveat on this checkout
 
 `meson test -C build` reports 230 passing with three known environment failures

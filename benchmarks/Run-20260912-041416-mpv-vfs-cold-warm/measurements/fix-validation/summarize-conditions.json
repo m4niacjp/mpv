@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "matrix": "C:\\Users\\andre\\PerfRuns\\vfs-bench-matrix-20260911-225854.json",
+  "conditions": [
+    {
+      "condition": "config-cold",
+      "kind": "plain",
+      "n": 2,
+      "openToFirstFrame1": {
+        "n": 2,
+        "min": 0.052,
+        "median": 0.06,
+        "max": 0.06
+      },
+      "nextToFirstFrame2": {
+        "n": 2,
+        "min": 0.386,
+        "median": 1.039,
+        "max": 1.039
+      },
+      "errors": 0,
+      "maxPrefetched": 3.0
+    },
+    {
+      "condition": "config-warm",
+      "kind": "plain",
+      "n": 2,
+      "openToFirstFrame1": {
+        "n": 2,
+        "min": 0.085,
+        "median": 0.217,
+        "max": 0.217
+      },
+      "nextToFirstFrame2": {
+        "n": 2,
+        "min": 0.063,
+        "median": 0.065,
+        "max": 0.065
+      },
+      "errors": 0,
+      "maxPrefetched": 3.0
+    }
+  ]
+}

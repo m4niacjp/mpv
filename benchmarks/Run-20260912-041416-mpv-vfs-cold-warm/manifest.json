@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 2,
+  "scenario": "mpv-vfs-cold-warm",
+  "title": "mpv rclone-VFS cold/warm first-frame and next-frame matrix (incl. playlist-sort A/B)",
+  "createdLocal": "2026-09-12T04:28:32+07:00",
+  "updatedLocal": "2026-09-12T06:00:00+07:00",
+  "matrixSummary": "C:\\Users\\andre\\PerfRuns\\vfs-bench-matrix-20260911-212832.json",
+  "trials": 24,
+  "errors": 0,
+  "batches": [
+    { "batch": 1, "what": "original 4 conditions x plain/wpr/procmon (n=1 per cell)", "runRoot": "C:\\Users\\andre\\PerfRuns", "matrix": "vfs-bench-matrix-20260911-212832.json" },
+    { "batch": 2, "what": "config-{cold,warm}-no-playlist-sort with 2 plains + wpr + procmon", "runRoot": "C:\\Users\\andre\\PerfRuns", "matrix": "vfs-bench-matrix-20260911-220146.json" },
+    { "batch": 3, "what": "one extra plain per original condition (repeat)", "runRoot": "C:\\Users\\andre\\PerfRuns", "matrix": "vfs-bench-matrix-20260911-220455.json" }
+  ],
+  "conditions": [
+    "config-cold", "config-warm", "noconfig-cold", "noconfig-warm",
+    "config-cold-no-playlist-sort", "config-warm-no-playlist-sort"
+  ],
+  "kinds": ["plain", "wpr", "procmon"],
+  "designNote": "n=2 plains and n=1 traced trials per condition; the three kinds in a condition use different disjoint input spans",
+  "executable": {
+    "path": "C:\\Users\\andre\\Projects\\mpv\\dist\\mpv.exe",
+    "sha256": "587027333113EF9C3EC13A0E619A131CAC3243144CCD35BC2174AC73BEC2A302",
+    "version": "mpv v0.41.0-947-gd37b8c1a7-dirty",
+    "gitHead": "2b0f9f46ca8c6dd8aa0a8103eb4285c543db2cf1"
+  },
+  "cacheState": {
+    "cold": "per-trial span vfs data+meta deleted and verified absent",
+    "warm": "vfsMeta Rs coverage verified 100% after flush wait",
+    "standbyPurge": "system-wide purge before every trial"
+  },
+  "playlistSortFix": {
+    "status": "applied 2026-09-12 after the matrix; verified with run-plsort.ps1 (only the two tied entries swapped, other 34 positions identical)",
+    "script": "C:\\Users\\andre\\AppData\\Roaming\\mpv\\scripts\\playlist-sort.lua",
+    "preFixSha256": "845471B3D70DEF6512A2598B74821893073C24113489A4F43E5156EE3484B414",
+    "postFixSha256": "D6A59AC26EB7113778C4BC01C21CF35B8970893901F1A97FD48F154BE567E514",
+    "preFixBackup": "C:\\Users\\andre\\AppData\\Local\\Temp\\opencode\\playlist-sort-prefix-backup.lua",
+    "what": "after_keys now tie-breaks equal non-name keys by compare_names (name ascending, Explorer behavior) before falling back to playlist index"
+  },
+  "playlistSortStallFix": {
+    "status": "applied and validated 2026-09-12; see fix-validation.md",
+    "script": "C:\\Users\\andre\\AppData\\Roaming\\mpv\\scripts\\playlist-sort.lua",
+    "preFixSha256": "D6A59AC26EB7113778C4BC01C21CF35B8970893901F1A97FD48F154BE567E514",
+    "postFixSha256": "ADDBFB64D766CED10546486549C96C0B0B8136290A292ABD2F5D0AA9D16F8EB4",
+    "intermediateSha256": "86287D21654454CA62FC206B21C93187665C4F6859B2EA88FE2038284FEB9F38",
+    "backups": {
+      "preFix": "C:\\Users\\andre\\AppData\\Local\\Temp\\opencode\\playlist-sort-D6A59AC2-backup.lua",
+      "intermediate": "C:\\Users\\andre\\AppData\\Local\\Temp\\opencode\\playlist-sort-fixed-final.lua",
+      "final": "C:\\Users\\andre\\AppData\\Local\\Temp\\opencode\\playlist-sort-fixed-2b.lua"
+    },
+    "what": "1) retarget kick only after a real order change and deferred to playback-restart while playing == NULL; 2) release the prefetch gate when a memoized Explorer failure starts the fallback pass; 2b) abort the key-fill pass when the current playlist entry changes",
+    "validationMatrix": "C:\\Users\\andre\\PerfRuns\\vfs-bench-matrix-20260911-225854.json",
+    "retainedIntermediateMatrix": "C:\\Users\\andre\\PerfRuns\\vfs-bench-matrix-20260911-224807.json",
+    "results": {
+      "wrongUrlAborts": 0,
+      "prefetchedAtNext": 3,
+      "nextToFirstFrame2Sec": { "config-cold": [0.386, 1.039], "config-warm": [0.063, 0.065] },
+      "comparison": { "noScriptColdSec": [1.126, 2.480], "prefixScriptColdSec": [3.382, 1.631] }
+    },
+    "runDirectories": [
+      "C:\\Users\\andre\\PerfRuns\\mpv-vfs-config-cold-20260911T224339592Z-4302141a2b804e3ba194444fcb781798",
+      "C:\\Users\\andre\\PerfRuns\\mpv-vfs-config-warm-20260911T224642923Z-e53d4051afb84d618f5f9ef20b2133ad",
+      "C:\\Users\\andre\\PerfRuns\\mpv-vfs-config-cold-20260911T225441416Z-8621fe66c24e48eea09c65ba94d4c38d",
+      "C:\\Users\\andre\\PerfRuns\\mpv-vfs-config-warm-20260911T225730188Z-524db225cb5d4662aac10d6e3b4261e0"
+    ],
+    "openItems": [
+      "mpv core guard: prefetch_next while a file start is pending (loadfile_async.c:529-534 bypass)",
+      "persist the Explorer equal-mtime/name tie-break rule in DOCS/references/libraries/win32-shell/"
+    ]
+  },
+  "runDirectories": [
+    "C:\\Users\\andre\\PerfRuns\\mpv-vfs-config-cold-20260911T211415412Z-1fa65bae3788404f9373452864313497",
+    "C:\\Users\\andre\\PerfRuns\\mpv-vfs-config-warm-20260911T211840096Z-5e78d63943484431973b03a927fd233f",
+    "C:\\Users\\andre\\PerfRuns\\mpv-vfs-noconfig-cold-20260911T212153484Z-f6516e682fc04f9fafffe6a3a1fd2ffe",
+    "C:\\Users\\andre\\PerfRuns\\mpv-vfs-noconfig-warm-20260911T212528993Z-e4d1b7daf086413ba19559ac201fcb41",
+    "C:\\Users\\andre\\PerfRuns\\mpv-vfs-config-cold-no-playlist-sort-20260911T215236104Z-c67a5e15ace049a686662ce6ea71046b",
+    "C:\\Users\\andre\\PerfRuns\\mpv-vfs-config-warm-no-playlist-sort-20260911T215753774Z-bc8a4d4c4a874b27a6bbf9af2e1400cb",
+    "C:\\Users\\andre\\PerfRuns\\mpv-vfs-config-cold-20260911T220157340Z-82ed35cbb78d4e478b931c50b03a2816",
+    "C:\\Users\\andre\\PerfRuns\\mpv-vfs-config-warm-20260911T220246611Z-cd81f262b8374376817743022a6c2767",
+    "C:\\Users\\andre\\PerfRuns\\mpv-vfs-noconfig-cold-20260911T220329306Z-5cf6ccd1b3c14ecda4166e02acee7e0a",
+    "C:\\Users\\andre\\PerfRuns\\mpv-vfs-noconfig-warm-20260911T220412927Z-fad2db272b8747f08ee65d4977d2dfc7"
+  ],
+  "retainedFailure": {
+    "runDirectory": "C:\\Users\\andre\\PerfRuns\\mpv-vfs-config-cold-20260911T210941914Z-2678904bc7d54a24aa671315712e473b",
+    "reason": "aborted after trial 1: probe frame observation never fired and two Set-StrictMode hazards; harness fixed and smoke-tested before the successful matrix"
+  },
+  "measurementFiles": {
+    "summary.csv": "per-trial metrics",
+    "conditions.json": "per-condition aggregates (plain open→frame1; all kinds next→frame2)",
+    "matrix-summary.json": "original 12-trial matrix record",
+    "captures.json": "WPR/Procmon capture summaries",
+    "procmon-switch/*.json": "per-Procmon-trial switch-window extraction (marker-anchored window, mpv+rclone rows, top durations, per-file reads)"
+  },
+  "analysisRoots": {
+    "merged": "C:\\PerfBench\\analysis\\merged",
+    "procmon": "C:\\PerfBench\\analysis\\procmon",
+    "wpa": "C:\\PerfBench\\analysis\\wpa"
+  },
+  "traceArtifacts": "external under the run directories and C:\\PerfBench\\analysis; see artifacts.md"
+}

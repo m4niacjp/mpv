@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "filteredCsv": "C:\\Users\\andre\\Projects\\mpv\\benchmarks\\Run-20260911-165208-mpv-playlist-skip\\option2\\selftest\\procmon-postfix.csv",
+  "scannedCsvRows": 4,
+  "processName": "mpv.exe",
+  "mpvPid": 999,
+  "pathMarkers": [
+    "\\\\server\\RcloneWcrypt\\share\\dir"
+  ],
+  "scanTid": 47792,
+  "scanWindow": {
+    "start": "16:37:40.3751039",
+    "end": "16:37:41.3751039"
+  },
+  "metrics": {
+    "captureInterpreted": true,
+    "scanEntriesObserved": 257,
+    "entryAttributeOpens": 0,
+    "dirAttributeOpens": 1,
+    "queryOps": 0,
+    "maxAttributeOpenSec": 0.0001,
+    "scanWindowSec": 0.0
+  },
+  "log": {
+    "openingDoneSec": 0.293,
+    "autocreateSec": 5.657,
+    "siblings": 257,
+    "deltaSec": 5.364
+  },
+  "longestAttributeOpens": [
+    {
+      "tod": "16:37:41.3747679",
+      "tid": 47792,
+      "durationMs": 0.07,
+      "path": "\\\\server\\RcloneWcrypt\\share\\dir"
+    }
+  ],
+  "thresholds": {
+    "baseline": false,
+    "maxEntryAttributeOpens": 0,
+    "maxAttributeOpenSec": 0.05,
+    "maxQueryOps": 5,
+    "maxScanWindowSec": 60.0
+  },
+  "warnings": [],
+  "success": true
+}

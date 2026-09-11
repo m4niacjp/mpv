@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "reportPackageId": "Run-20260911-143730-mpv-directory-playback",
+  "createdFromRunAt": "2026-09-11T07:37:30.6333816Z",
+  "scenario": "mpv-directory-playback",
+  "boundary": "process-launch-to-first-video-output-with-30-second-process-sampling",
+  "expectedBehavior": "Open I:\\XXX, build the intended playlist, and begin video output without avoidable startup delay or excessive resource pressure.",
+  "observedBehavior": "Active configuration rejected the directory; recursive override reached first video output in about 2.6 seconds versus 0.58 seconds for the same first file without sibling discovery.",
+  "primaryMetric": "MPV monotonic seconds from process launch to first VO log record",
+  "workload": {
+    "executable": "dist\\mpv.exe",
+    "inputRoot": "I:\\XXX",
+    "representativeFile": "I:\\XXX\\3p\\683d17803fd90.mkv",
+    "videoFileCount": 9797,
+    "successfulVariants": [
+      "--directory-mode=recursive",
+      "--directory-mode=recursive --prefetch-playlist=no --prefetch-playlist-on-cache=no --prefetch-playlist-realtime=no",
+      "--autocreate-playlist=no"
+    ]
+  },
+  "status": "inconclusive-no-elevated-etw",
+  "cacheState": "unknown",
+  "backgroundLoadPreflight": {
+    "status": "not-recorded",
+    "disposition": "inconclusive-possible-contamination"
+  },
+  "processTree": {
+    "rootProcessesPerRun": 1,
+    "childProcessesObserved": 0,
+    "configuredPrefetchPlaylistMax": 10
+  },
+  "processIds": [40800, 52464, 55580, 30556],
+  "capture": {
+    "plannedProfiles": ["CPU.Light", "GPU.Light", "FileIO.Light"],
+    "mode": "memory",
+    "started": false,
+    "reason": "WPR capture needs an elevated session."
+  },
+  "trialCount": 4,
+  "successfulTrialCount": 3,
+  "failedTrialCount": 1,
+  "rawArtifactsExternal": true,
+  "files": {
+    "report": "report.md",
+    "environment": "environment.json",
+    "commands": "commands.md",
+    "artifacts": "artifacts.md",
+    "measurements": "measurements/summary.csv"
+  },
+  "sourceRuns": [
+    "bcc0a336932041f8a1322d0e783ce240",
+    "da46177d91294e89a23bf6cbd592dd8b",
+    "577925d3602740a6a307f6ec645ffffd"
+  ],
+  "commandProvenance": "Workload argument lists copied from MPV Command line options log records; complete shell transcript unavailable."
+}

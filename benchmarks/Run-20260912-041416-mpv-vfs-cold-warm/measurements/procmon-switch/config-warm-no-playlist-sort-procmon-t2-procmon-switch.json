@@ -1,0 +1,645 @@
+{
+  "schemaVersion": 1,
+  "trial": "config-warm-no-playlist-sort-procmon-t2",
+  "csvPath": "C:\\Users\\andre\\PerfRuns\\mpv-vfs-config-warm-no-playlist-sort-20260911T215753774Z-bc8a4d4c4a874b27a6bbf9af2e1400cb\\exports\\procmon-67b1adf5abcd4cc18f99827b81e3f639.csv",
+  "pmlPath": "C:\\Users\\andre\\PerfRuns\\mpv-vfs-config-warm-no-playlist-sort-20260911T215753774Z-bc8a4d4c4a874b27a6bbf9af2e1400cb\\traces\\procmon-67b1adf5abcd4cc18f99827b81e3f639.pml",
+  "window": {
+    "next": "2026-09-12T05:00:02.9326014",
+    "restart2": "2026-09-12T05:00:03.0098319",
+    "seconds": 0.077
+  },
+  "main": "PB12.mkv",
+  "prefetch": "PB13.mkv",
+  "pids": {
+    "mpv": "15612",
+    "extra": [
+      29148
+    ]
+  },
+  "perPid": {
+    "15612": {
+      "rows": 698,
+      "byOperation": {
+        "ReadFile": {
+          "count": 37,
+          "totalSec": 0.0613,
+          "maxSec": 0.0207
+        },
+        "CreateFile": {
+          "count": 23,
+          "totalSec": 0.0016,
+          "maxSec": 0.0009
+        },
+        "WriteFile": {
+          "count": 285,
+          "totalSec": 0.001,
+          "maxSec": 0.0
+        },
+        "QueryInformationVolume": {
+          "count": 6,
+          "totalSec": 0.0002,
+          "maxSec": 0.0002
+        },
+        "RegOpenKey": {
+          "count": 55,
+          "totalSec": 0.0002,
+          "maxSec": 0.0
+        },
+        "RegQueryValue": {
+          "count": 62,
+          "totalSec": 0.0002,
+          "maxSec": 0.0
+        },
+        "RegSetValue": {
+          "count": 3,
+          "totalSec": 0.0001,
+          "maxSec": 0.0001
+        },
+        "RegCloseKey": {
+          "count": 55,
+          "totalSec": 0.0001,
+          "maxSec": 0.0
+        },
+        "RegQueryKey": {
+          "count": 48,
+          "totalSec": 0.0001,
+          "maxSec": 0.0
+        },
+        "RegSetInfoKey": {
+          "count": 47,
+          "totalSec": 0.0,
+          "maxSec": 0.0
+        },
+        "RegEnumKey": {
+          "count": 13,
+          "totalSec": 0.0,
+          "maxSec": 0.0
+        },
+        "CloseFile": {
+          "count": 3,
+          "totalSec": 0.0,
+          "maxSec": 0.0
+        },
+        "QueryDeviceInformationVolume": {
+          "count": 10,
+          "totalSec": 0.0,
+          "maxSec": 0.0
+        },
+        "QueryStandardInformationFile": {
+          "count": 7,
+          "totalSec": 0.0,
+          "maxSec": 0.0
+        },
+        "QueryBasicInformationFile": {
+          "count": 8,
+          "totalSec": 0.0,
+          "maxSec": 0.0
+        },
+        "QueryNameInformationFile": {
+          "count": 4,
+          "totalSec": 0.0,
+          "maxSec": 0.0
+        },
+        "QueryAllInformationFile": {
+          "count": 6,
+          "totalSec": 0.0,
+          "maxSec": 0.0
+        },
+        "QueryIdInformation": {
+          "count": 6,
+          "totalSec": 0.0,
+          "maxSec": 0.0
+        },
+        "IRP_MJ_CLOSE": {
+          "count": 2,
+          "totalSec": 0.0,
+          "maxSec": 0.0
+        },
+        "QueryOpen": {
+          "count": 2,
+          "totalSec": 0.0,
+          "maxSec": 0.0
+        },
+        "Process Profiling": {
+          "count": 1,
+          "totalSec": 0.0,
+          "maxSec": 0.0
+        },
+        "Thread Create": {
+          "count": 8,
+          "totalSec": 0.0,
+          "maxSec": 0.0
+        },
+        "Thread Exit": {
+          "count": 7,
+          "totalSec": 0.0,
+          "maxSec": 0.0
+        }
+      }
+    },
+    "29148": {
+      "rows": 454,
+      "byOperation": {
+        "ReadFile": {
+          "count": 68,
+          "totalSec": 0.1186,
+          "maxSec": 0.0197
+        },
+        "WriteFile": {
+          "count": 266,
+          "totalSec": 0.001,
+          "maxSec": 0.0
+        },
+        "QueryAllInformationFile": {
+          "count": 35,
+          "totalSec": 0.0001,
+          "maxSec": 0.0
+        },
+        "CreateFile": {
+          "count": 11,
+          "totalSec": 0.0001,
+          "maxSec": 0.0
+        },
+        "QueryInformationVolume": {
+          "count": 35,
+          "totalSec": 0.0001,
+          "maxSec": 0.0
+        },
+        "CloseFile": {
+          "count": 10,
+          "totalSec": 0.0001,
+          "maxSec": 0.0
+        },
+        "SetEndOfFileInformationFile": {
+          "count": 1,
+          "totalSec": 0.0,
+          "maxSec": 0.0
+        },
+        "QueryNetworkOpenInformationFile": {
+          "count": 8,
+          "totalSec": 0.0,
+          "maxSec": 0.0
+        },
+        "IRP_MJ_CLOSE": {
+          "count": 9,
+          "totalSec": 0.0,
+          "maxSec": 0.0
+        },
+        "QueryOpen": {
+          "count": 8,
+          "totalSec": 0.0,
+          "maxSec": 0.0
+        },
+        "FileSystemControl": {
+          "count": 2,
+          "totalSec": 0.0,
+          "maxSec": 0.0
+        },
+        "Process Profiling": {
+          "count": 1,
+          "totalSec": 0.0,
+          "maxSec": 0.0
+        }
+      }
+    }
+  },
+  "topByDuration": [
+    {
+      "t": "05:00:02.993",
+      "pid": "15612",
+      "tid": "33044",
+      "op": "ReadFile",
+      "path": "\\\\server\\RcloneWcrypt\\PerformanceBench\\Warm\\PB13.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0207
+    },
+    {
+      "t": "05:00:02.994",
+      "pid": "29148",
+      "tid": "32496",
+      "op": "ReadFile",
+      "path": "D:\\rclone-wasabi-cache\\vfs\\wcrypt\\PerformanceBench\\Warm\\PB12.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0197
+    },
+    {
+      "t": "05:00:02.994",
+      "pid": "29148",
+      "tid": "2420",
+      "op": "ReadFile",
+      "path": "D:\\rclone-wasabi-cache\\vfs\\wcrypt\\PerformanceBench\\Warm\\PB13.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0196
+    },
+    {
+      "t": "05:00:02.995",
+      "pid": "15612",
+      "tid": "40312",
+      "op": "ReadFile",
+      "path": "\\\\server\\RcloneWcrypt\\PerformanceBench\\Warm\\PB12.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0194
+    },
+    {
+      "t": "05:00:02.994",
+      "pid": "29148",
+      "tid": "32496",
+      "op": "ReadFile",
+      "path": "D:\\rclone-wasabi-cache\\vfs\\wcrypt\\PerformanceBench\\Warm\\PB12.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0193
+    },
+    {
+      "t": "05:00:02.994",
+      "pid": "29148",
+      "tid": "2420",
+      "op": "ReadFile",
+      "path": "D:\\rclone-wasabi-cache\\vfs\\wcrypt\\PerformanceBench\\Warm\\PB13.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0193
+    },
+    {
+      "t": "05:00:02.952",
+      "pid": "15612",
+      "tid": "14156",
+      "op": "ReadFile",
+      "path": "\\\\server\\RcloneWcrypt\\PerformanceBench\\Warm\\PB15.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0034
+    },
+    {
+      "t": "05:00:02.952",
+      "pid": "15612",
+      "tid": "14156",
+      "op": "ReadFile",
+      "path": "\\\\server\\RcloneWcrypt\\PerformanceBench\\Warm\\PB15.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0028
+    },
+    {
+      "t": "05:00:02.952",
+      "pid": "15612",
+      "tid": "14156",
+      "op": "ReadFile",
+      "path": "\\\\server\\RcloneWcrypt\\PerformanceBench\\Warm\\PB15.mkv",
+      "result": "SUCCESS",
+      "sec": 0.002
+    },
+    {
+      "t": "05:00:02.986",
+      "pid": "15612",
+      "tid": "40312",
+      "op": "ReadFile",
+      "path": "\\\\server\\RcloneWcrypt\\PerformanceBench\\Warm\\PB12.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0018
+    },
+    {
+      "t": "05:00:02.990",
+      "pid": "15612",
+      "tid": "33044",
+      "op": "ReadFile",
+      "path": "\\\\server\\RcloneWcrypt\\PerformanceBench\\Warm\\PB13.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0013
+    },
+    {
+      "t": "05:00:02.982",
+      "pid": "29148",
+      "tid": "19144",
+      "op": "ReadFile",
+      "path": "D:\\rclone-wasabi-cache\\vfs\\wcrypt\\PerformanceBench\\Warm\\PB13.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0012
+    },
+    {
+      "t": "05:00:02.950",
+      "pid": "29148",
+      "tid": "19024",
+      "op": "ReadFile",
+      "path": "D:\\rclone-wasabi-cache\\vfs\\wcrypt\\PerformanceBench\\Warm\\PB13.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0011
+    },
+    {
+      "t": "05:00:02.993",
+      "pid": "15612",
+      "tid": "40312",
+      "op": "ReadFile",
+      "path": "\\\\server\\RcloneWcrypt\\PerformanceBench\\Warm\\PB12.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0011
+    },
+    {
+      "t": "05:00:02.979",
+      "pid": "29148",
+      "tid": "19024",
+      "op": "ReadFile",
+      "path": "D:\\rclone-wasabi-cache\\vfs\\wcrypt\\PerformanceBench\\Warm\\PB13.mkv",
+      "result": "SUCCESS",
+      "sec": 0.001
+    },
+    {
+      "t": "05:00:02.980",
+      "pid": "29148",
+      "tid": "19132",
+      "op": "ReadFile",
+      "path": "D:\\rclone-wasabi-cache\\vfs\\wcrypt\\PerformanceBench\\Warm\\PB15.mkv",
+      "result": "SUCCESS",
+      "sec": 0.001
+    },
+    {
+      "t": "05:00:02.983",
+      "pid": "29148",
+      "tid": "32496",
+      "op": "ReadFile",
+      "path": "D:\\rclone-wasabi-cache\\vfs\\wcrypt\\PerformanceBench\\Warm\\PB15.mkv",
+      "result": "SUCCESS",
+      "sec": 0.001
+    },
+    {
+      "t": "05:00:02.982",
+      "pid": "29148",
+      "tid": "2420",
+      "op": "ReadFile",
+      "path": "D:\\rclone-wasabi-cache\\vfs\\wcrypt\\PerformanceBench\\Warm\\PB15.mkv",
+      "result": "SUCCESS",
+      "sec": 0.001
+    },
+    {
+      "t": "05:00:02.956",
+      "pid": "29148",
+      "tid": "19136",
+      "op": "ReadFile",
+      "path": "D:\\rclone-wasabi-cache\\vfs\\wcrypt\\PerformanceBench\\Warm\\PB13.mkv",
+      "result": "SUCCESS",
+      "sec": 0.001
+    },
+    {
+      "t": "05:00:02.986",
+      "pid": "29148",
+      "tid": "19144",
+      "op": "ReadFile",
+      "path": "D:\\rclone-wasabi-cache\\vfs\\wcrypt\\PerformanceBench\\Warm\\PB12.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0009
+    },
+    {
+      "t": "05:00:02.950",
+      "pid": "15612",
+      "tid": "14156",
+      "op": "CreateFile",
+      "path": "\\\\server\\RcloneWcrypt\\PerformanceBench\\Warm\\PB15.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0009
+    },
+    {
+      "t": "05:00:02.988",
+      "pid": "29148",
+      "tid": "32496",
+      "op": "ReadFile",
+      "path": "D:\\rclone-wasabi-cache\\vfs\\wcrypt\\PerformanceBench\\Warm\\PB13.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0009
+    },
+    {
+      "t": "05:00:02.985",
+      "pid": "15612",
+      "tid": "33044",
+      "op": "ReadFile",
+      "path": "\\\\server\\RcloneWcrypt\\PerformanceBench\\Warm\\PB13.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0009
+    },
+    {
+      "t": "05:00:02.990",
+      "pid": "29148",
+      "tid": "32496",
+      "op": "ReadFile",
+      "path": "D:\\rclone-wasabi-cache\\vfs\\wcrypt\\PerformanceBench\\Warm\\PB13.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0009
+    },
+    {
+      "t": "05:00:02.985",
+      "pid": "29148",
+      "tid": "32496",
+      "op": "ReadFile",
+      "path": "D:\\rclone-wasabi-cache\\vfs\\wcrypt\\PerformanceBench\\Warm\\PB15.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0009
+    },
+    {
+      "t": "05:00:02.983",
+      "pid": "29148",
+      "tid": "19136",
+      "op": "ReadFile",
+      "path": "D:\\rclone-wasabi-cache\\vfs\\wcrypt\\PerformanceBench\\Warm\\PB12.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0008
+    },
+    {
+      "t": "05:00:02.985",
+      "pid": "29148",
+      "tid": "2420",
+      "op": "ReadFile",
+      "path": "D:\\rclone-wasabi-cache\\vfs\\wcrypt\\PerformanceBench\\Warm\\PB13.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0008
+    },
+    {
+      "t": "05:00:02.981",
+      "pid": "29148",
+      "tid": "19024",
+      "op": "ReadFile",
+      "path": "D:\\rclone-wasabi-cache\\vfs\\wcrypt\\PerformanceBench\\Warm\\PB13.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0008
+    },
+    {
+      "t": "05:00:02.982",
+      "pid": "29148",
+      "tid": "19132",
+      "op": "ReadFile",
+      "path": "D:\\rclone-wasabi-cache\\vfs\\wcrypt\\PerformanceBench\\Warm\\PB12.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0008
+    },
+    {
+      "t": "05:00:02.955",
+      "pid": "29148",
+      "tid": "19024",
+      "op": "ReadFile",
+      "path": "D:\\rclone-wasabi-cache\\vfs\\wcrypt\\PerformanceBench\\Warm\\PB15.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0008
+    },
+    {
+      "t": "05:00:02.957",
+      "pid": "29148",
+      "tid": "19144",
+      "op": "ReadFile",
+      "path": "D:\\rclone-wasabi-cache\\vfs\\wcrypt\\PerformanceBench\\Warm\\PB15.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0008
+    },
+    {
+      "t": "05:00:02.980",
+      "pid": "29148",
+      "tid": "19136",
+      "op": "ReadFile",
+      "path": "D:\\rclone-wasabi-cache\\vfs\\wcrypt\\PerformanceBench\\Warm\\PB12.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0008
+    },
+    {
+      "t": "05:00:02.950",
+      "pid": "29148",
+      "tid": "19024",
+      "op": "ReadFile",
+      "path": "D:\\rclone-wasabi-cache\\vfs\\wcrypt\\PerformanceBench\\Warm\\PB13.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0008
+    },
+    {
+      "t": "05:00:02.986",
+      "pid": "29148",
+      "tid": "19024",
+      "op": "ReadFile",
+      "path": "D:\\rclone-wasabi-cache\\vfs\\wcrypt\\PerformanceBench\\Warm\\PB15.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0008
+    },
+    {
+      "t": "05:00:02.989",
+      "pid": "29148",
+      "tid": "19144",
+      "op": "ReadFile",
+      "path": "D:\\rclone-wasabi-cache\\vfs\\wcrypt\\PerformanceBench\\Warm\\PB12.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0008
+    },
+    {
+      "t": "05:00:02.982",
+      "pid": "29148",
+      "tid": "19144",
+      "op": "ReadFile",
+      "path": "D:\\rclone-wasabi-cache\\vfs\\wcrypt\\PerformanceBench\\Warm\\PB13.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0008
+    },
+    {
+      "t": "05:00:02.991",
+      "pid": "15612",
+      "tid": "40312",
+      "op": "ReadFile",
+      "path": "\\\\server\\RcloneWcrypt\\PerformanceBench\\Warm\\PB12.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0008
+    },
+    {
+      "t": "05:00:02.991",
+      "pid": "29148",
+      "tid": "2420",
+      "op": "ReadFile",
+      "path": "D:\\rclone-wasabi-cache\\vfs\\wcrypt\\PerformanceBench\\Warm\\PB12.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0008
+    },
+    {
+      "t": "05:00:02.979",
+      "pid": "29148",
+      "tid": "19144",
+      "op": "ReadFile",
+      "path": "D:\\rclone-wasabi-cache\\vfs\\wcrypt\\PerformanceBench\\Warm\\PB12.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0008
+    },
+    {
+      "t": "05:00:02.993",
+      "pid": "29148",
+      "tid": "19144",
+      "op": "ReadFile",
+      "path": "D:\\rclone-wasabi-cache\\vfs\\wcrypt\\PerformanceBench\\Warm\\PB12.mkv",
+      "result": "SUCCESS",
+      "sec": 0.0008
+    }
+  ],
+  "files": {
+    "PB12.mkv": {
+      "first": "05:00:02.957",
+      "last": "05:00:02.995",
+      "rows": 69,
+      "readRows": 39,
+      "readMiB": 78.0,
+      "ops": [
+        {
+          "op": "QueryAllInformationFile",
+          "count": 13
+        },
+        {
+          "op": "QueryBasicInformationFile",
+          "count": 1
+        },
+        {
+          "op": "QueryDeviceInformationVolume",
+          "count": 1
+        },
+        {
+          "op": "QueryIdInformation",
+          "count": 1
+        },
+        {
+          "op": "QueryInformationVolume",
+          "count": 13
+        },
+        {
+          "op": "QueryStandardInformationFile",
+          "count": 1
+        },
+        {
+          "op": "ReadFile",
+          "count": 39
+        }
+      ]
+    },
+    "PB13.mkv": {
+      "first": "05:00:02.948",
+      "last": "05:00:02.994",
+      "rows": 74,
+      "readRows": 42,
+      "readMiB": 84.0,
+      "ops": [
+        {
+          "op": "QueryAllInformationFile",
+          "count": 14
+        },
+        {
+          "op": "QueryBasicInformationFile",
+          "count": 1
+        },
+        {
+          "op": "QueryDeviceInformationVolume",
+          "count": 1
+        },
+        {
+          "op": "QueryIdInformation",
+          "count": 1
+        },
+        {
+          "op": "QueryInformationVolume",
+          "count": 14
+        },
+        {
+          "op": "QueryStandardInformationFile",
+          "count": 1
+        },
+        {
+          "op": "ReadFile",
+          "count": 42
+        }
+      ]
+    }
+  },
+  "slowest": []
+}

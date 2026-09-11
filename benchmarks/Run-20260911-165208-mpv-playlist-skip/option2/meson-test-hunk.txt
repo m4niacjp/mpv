@@ -1,0 +1,27 @@
+# Registration hunk for the Option 2 draft test.
+# Apply to test/meson.build inside the existing `if get_option('libmpv')`
+# block, directly after the libmpv-test-prefetch registration (working-tree
+# lines 168-170). `file` is the icon PNG defined at the top of that block
+# (test/meson.build:129). No production target, flag, or dependency is touched.
+#
+# --- a/test/meson.build
+# +++ b/test/meson.build
+@@ -168,6 +168,10 @@ if get_option('libmpv')
+     exe = executable('libmpv-test-prefetch', 'libmpv_test_prefetch.c',
+                      include_directories: incdir, dependencies: libmpv_dep)
+     test('libmpv-test-prefetch', exe, args: file, suite: 'libmpv')
++
++    exe = executable('libmpv-test-dirent-scan', 'libmpv_test_dirent_scan.c',
++                     include_directories: incdir, dependencies: libmpv_dep)
++    test('libmpv-test-dirent-scan', exe, args: file, suite: 'libmpv')
+ endif
+#
+# Prerequisite: the build must have libmpv enabled (`-Dlibmpv=true`); the
+# existing `build/` directory already builds libmpv-2.dll.
+#
+# Run:
+#   meson test -C build libmpv-test-dirent-scan --print-errorlogs
+#   meson test -C build --suite libmpv --print-errorlogs
+#
+# The draft source file's final repository path is
+# test/libmpv_test_dirent_scan.c (see test-dirent-scan.c.draft).

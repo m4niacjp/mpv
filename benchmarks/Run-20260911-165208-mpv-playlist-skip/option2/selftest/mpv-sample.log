@@ -1,0 +1,4 @@
+[   0.006][v][cplayer] Setting option 'autocreate-playlist' = 'filter' (flags = 4)
+[   0.285][v][ytdl_hook] playlist hook
+[   0.293][v][cplayer] Opening done: <media-root>/media-001.mkv
+[   5.657][v][cplayer] Autocreate playlist: 257 siblings.

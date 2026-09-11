@@ -4,7 +4,12 @@ Project: mpv (C11 media player, Meson). Docs live under `DOCS/` (uppercase).
 Do not create a `docs/` case-variant tree.
 
 - `session-log.md` — append-only run log
-- `rules.md` — project-specific documentation rules
+- Layout convention: keep the existing `README.md` / `AGENTS.md` / `DOCS/`
+  structure; no `DOCS/Internal.md` unless initialize mode is explicitly
+  requested, and no lowercase `docs/` tree.
+- Ownership: `DOCS/references/libraries/**` bodies belong to `doc-search`; do
+  not rewrite them. User-visible behavior goes in `DOCS/man/`; interface notes
+  in `DOCS/interface-changes/`.
 
 Current repository identity and integration policy:
 
@@ -30,3 +35,12 @@ RTX Video documentation context:
   format detection checks `video-params/hw-pixelformat` first and falls back to
   `video-params/pixelformat` (then the track format), because `d3d11va` can
   expose the usable format only through the hardware property.
+
+Local VFS cold/warm benchmark harness (documented 2026-09-12):
+
+- `DOCS/local-workflow.md#vfs-coldwarm-benchmark-harness` documents
+  `benchmarks\vfs-bench\`: script roles, protocol invariants, artifact roots
+  `C:\PerfBench` and `C:\Users\andre\PerfRuns\mpv-vfs-*`, report package
+  `benchmarks\Run-20260912-041416-mpv-vfs-cold-warm\`, and handoff
+  `benchmarks\vfs-bench\handoff.md`.
+- Keep that section in sync if the harness scripts or conventions change.

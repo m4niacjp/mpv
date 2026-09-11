@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-09-11T22:07:47.7256584+00:00",
+  "etlPath": "C:\\Users\\andre\\PerfRuns\\mpv-vfs-config-cold-20260911T211415412Z-1fa65bae3788404f9373452864313497\\traces\\capture-b9a0c786fced404abb7d4af46ebe529c.etl",
+  "profilePath": "C:\\Users\\andre\\PerfRuns\\mpv-stack-analysis-20260911\\control\\control-delays.wpaProfile",
+  "exporter": "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\wpaexporter.exe",
+  "exporterVersion": "11.7.395.48728",
+  "argumentList": [
+    "-i",
+    "C:\\Users\\andre\\PerfRuns\\mpv-vfs-config-cold-20260911T211415412Z-1fa65bae3788404f9373452864313497\\traces\\capture-b9a0c786fced404abb7d4af46ebe529c.etl",
+    "-marks",
+    "workload-start",
+    "workload-end",
+    "-profile",
+    "C:\\Users\\andre\\PerfRuns\\mpv-stack-analysis-20260911\\control\\control-delays.wpaProfile",
+    "-outputfolder",
+    "C:\\PerfBench\\analysis\\wpa\\config-cold-wpr",
+    "-outputformat",
+    "CSV"
+  ],
+  "culture": "en-US",
+  "logPath": "C:\\PerfBench\\analysis\\wpa\\config-cold-wpr\\wpaexporter.log",
+  "exitCode": 0,
+  "elapsedMs": 16940.46,
+  "exportedRange": "time range 439ms to 28769ms",
+  "exporterReportedError": false,
+  "emptyPresets": [],
+  "files": [
+    {
+      "name": "CPU_Usage_(Precise)_Thread_Delays.csv",
+      "path": "C:\\PerfBench\\analysis\\wpa\\config-cold-wpr\\CPU_Usage_(Precise)_Thread_Delays.csv",
+      "columns": [
+        "New Process",
+        "New Thread Id",
+        "Switch-In Time (s)",
+        "New Thread Stack",
+        "Readying Process",
+        "Readying Thread Id",
+        "Waits (µs)",
+        "Ready (µs)",
+        "Count: Waits",
+        "Ready (µs) #2",
+        "Waits (µs) #2",
+        "New In Pri",
+        "Old Process",
+        "Old Thread Id",
+        "Old Out Pri",
+        "Old Switch-In Time (µs)",
+        "Old State",
+        "Old Wait Reason",
+        "Old Wait Mode",
+        "CPU",
+        "Ideal Cpu",
+        "% CPU Usage",
+        "Last Switch-Out Time (s)",
+        "Switch-In Time (s) #2"
+      ],
+      "dataRows": 228,
+      "duplicateColumns": [
+        "Ready (µs)",
+        "Switch-In Time (s)",
+        "Waits (µs)"
+      ]
+    },
+    {
+      "name": "CPU_Usage_(Sampled)_Breakdown_by_Process,_Thread,_Activity,_Stack.csv",
+      "path": "C:\\PerfBench\\analysis\\wpa\\config-cold-wpr\\CPU_Usage_(Sampled)_Breakdown_by_Process,_Thread,_Activity,_Stack.csv",
+      "columns": [
+        "Process",
+        "Thread Name",
+        "Thread ID",
+        "Thread Activity Tag",
+        "Stack",
+        "Weight (in view) (ms)",
+        "% Weight",
+        "TimeStamp (s)",
+        "Count",
+        "Priority",
+        "Weight (ms)"
+      ],
+      "dataRows": 156,
+      "duplicateColumns": []
+    }
+  ],
+  "missingRequired": [],
+  "success": true,
+  "error": null
+}

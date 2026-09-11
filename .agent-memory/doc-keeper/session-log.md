@@ -172,3 +172,39 @@ Verified against `video/filter/vf_d3d11vpp.c` and the local
 `mpv.conf` were read only and not edited.
 
 Pending: none.
+
+## 2026-09-12 — VFS cold/warm benchmark harness section
+
+Documented the checkout-local rclone/WinFsp VFS benchmark harness in
+`DOCS/local-workflow.md` (new `## VFS cold/warm benchmark harness` section
+between "Personal runtime configuration" and "Test suite caveat on this
+checkout", 39 lines): one-line roles for the eleven `benchmarks\vfs-bench\`
+files, protocol invariants (one mpv at a time, per-trial standby purge, cold
+span vfs data+meta deletion with the 60 s handle grace and +15 s on span reuse,
+warm flushed `vfsMeta` `Rs` coverage 100 %, rclone DEBUG only for traced
+trials, `-Marks workload-start,workload-end`, raw ETL/PML/large CSVs outside
+Git), artifact locations (`C:\PerfBench`,
+`C:\Users\andre\PerfRuns\mpv-vfs-*`, report package
+`benchmarks\Run-20260912-041416-mpv-vfs-cold-warm\`, handoff
+`benchmarks\vfs-bench\handoff.md`), and the two Roaming-config conventions
+(real-config arm reads `%APPDATA%\mpv`; A/B moves `playlist-sort.lua` out of
+`%APPDATA%\mpv\scripts` with a hash-guarded restore, because mpv probes every
+`scripts\` entry).
+
+Changed:
+- `DOCS/local-workflow.md`: added the harness section (additive only).
+- `AGENTS.md`: one pointer sentence at the end of "Local user-script routing".
+- `.agent-memory/doc-keeper/MEMORY.md`: folded the retired `rules.md`
+  conventions in and added the harness pointer; removed `rules.md`.
+
+Verified: every cited script/path exists and was read (`benchmarks\vfs-bench\*`,
+report package, `handoff.md`, `C:\PerfBench`,
+`C:\Users\andre\PerfRuns\mpv-vfs-*`); invariants match the scripts; anchor
+`#vfs-coldwarm-benchmark-harness` resolves from `AGENTS.md`; `git diff --check`
+and codespell (`codespell==2.3.0` with the repo ignore list) pass.
+
+Left untouched: `DOCS/optimization_implementation.md`, `osdep/io.c`,
+`test/libmpv_test_prefetch.c` (pre-existing user work), and all
+library/web-search trees.
+
+Pending: none.

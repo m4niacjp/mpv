@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "runId": "run-20260911-165208-mpv-playlist-skip",
+  "createdAt": "2026-09-11T16:52:08+02:00",
+  "scenario": "mpv-playlist-skip",
+  "boundary": "mpv process spawn -> IPC-driven three-file skip -> export/exit",
+  "workload": "dist\\mpv.exe <random top-level .mkv from I:\\XXX\\new2>; T1+5s playlist-next, immediately a second playlist-next; quit at third-file playback-restart; arms: real user config vs --no-config --autocreate-playlist=filter",
+  "cacheState": "unknown",
+  "workerCount": 1,
+  "elevation": "High integrity (admin) harness and mpv child",
+  "binary": {
+    "path": "C:\\Users\\andre\\Projects\\mpv\\dist\\mpv.exe",
+    "version": "v0.41.0-947-gd37b8c1a7-dirty",
+    "built": "2026-09-11 03:34:59"
+  },
+  "mediaRoot": {
+    "path": "I:\\XXX\\new2",
+    "topLevelMkvCount": 257,
+    "totalBytes": 98371163700,
+    "note": "input identities reported by name-rank alias only; raw mapping in external run measurements\\selection.json"
+  },
+  "trials": {
+    "real": ["t0", "t1", "t2"],
+    "control": ["t3", "t4", "t5"],
+    "procmon_extra_real": ["t6"]
+  },
+  "externalRunDirectory": "C:\\Users\\andre\\PerfRuns\\mpv-playlist-skip-20260911T090749482Z-da38e1520da444cca96c26acd325bc27",
+  "artifacts": {
+    "report": "report.md",
+    "environment": "environment.json",
+    "commands": "commands.md",
+    "artifacts": "artifacts.md",
+    "measurements": "measurements\\summary.csv",
+    "wprRealEtl": "C:\\Users\\andre\\PerfRuns\\mpv-playlist-skip-20260911T090749482Z-da38e1520da444cca96c26acd325bc27\\traces\\capture-0e2d39e5e6764bb8b4f87adc2b97c9f6.etl",
+    "wprControlEtl": "C:\\Users\\andre\\PerfRuns\\mpv-playlist-skip-20260911T090749482Z-da38e1520da444cca96c26acd325bc27\\traces\\capture-ad502a227d644e9ab0fd901439b771f6.etl",
+    "procmonPml": "C:\\Users\\andre\\PerfRuns\\mpv-playlist-skip-20260911T090749482Z-da38e1520da444cca96c26acd325bc27\\traces\\procmon-7208286fc6514ac087fb0fba7db64fb0.pml",
+    "wpaExports": "C:\\Users\\andre\\PerfRuns\\mpv-playlist-skip-20260911T090749482Z-da38e1520da444cca96c26acd325bc27\\exports",
+    "harness": "C:\\Users\\andre\\PerfRuns\\mpv-playlist-skip-20260911T090749482Z-da38e1520da444cca96c26acd325bc27\\measurements\\Invoke-MpvSkipBatch.ps1"
+  },
+  "headline": {
+    "real_launchToT1_ms": [1106.9, 1146.9, 1123.0],
+    "real_nextAttempts": [1, 5, 7],
+    "real_successfulNextToT4_ms": [812.5, 4170.6, 3236.5],
+    "real_quitToExit_ms": [1103.0, 694.7, 923.8],
+    "control_launchToT1_ms": [397.8, 1216.3, 389.6],
+    "control_nextAttempts": [1, 1, 1],
+    "control_successfulNextToT4_ms": [120.4, 483.5, 86.3],
+    "control_quitToExit_ms": [352.3, 107.2, 60.2]
+  },
+  "dirtyTreeNote": "Repository dirty state before/after is unchanged: modified DOCS/optimization_implementation.md, osdep/io.c, test/libmpv_test_prefetch.c; untracked benchmarks/, dist/, .agent-memory/, DOCS/references/libraries/win32-shell/, remember-rtx.state"
+}

@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "collectedAt": "2026-09-11T07:37:31.8668190Z",
+  "project": {
+    "root": "C:\\Users\\andre\\Projects\\mpv",
+    "commit": "d37b8c1a79c422208bde4050154dab7dbcd32846",
+    "workingTreeDirty": true
+  },
+  "application": {
+    "executable": "dist\\mpv.exe",
+    "version": "v0.41.0-947-gd37b8c1a7-dirty",
+    "architecture": "x64",
+    "builtAt": "2026-09-11 03:34:59"
+  },
+  "os": {
+    "caption": "Microsoft Windows 11 Pro Insider Preview",
+    "version": "10.0.26220",
+    "build": "26220",
+    "architecture": "X64"
+  },
+  "cpu": {
+    "name": "AMD Ryzen 9 9950X3D 16-Core Processor",
+    "cores": 16,
+    "logicalProcessors": 32
+  },
+  "ramBytes": 102741454848,
+  "elevated": false,
+  "backgroundLoadPreflight": {
+    "status": "not-recorded",
+    "cpu": "unknown",
+    "memoryPaging": "unknown",
+    "diskVolumes": "unknown",
+    "network": "unknown",
+    "gpu": "unknown"
+  },
+  "tools": {
+    "wpr": "10.0.26100.9306",
+    "wpa": "11.7.395.48728",
+    "wpaexporter": "11.7.395.48728",
+    "powershell": "7.6.6",
+    "procmon": "4.11"
+  },
+  "input": {
+    "root": "I:\\XXX",
+    "videoFileCount": 9797,
+    "representativeFile": "I:\\XXX\\3p\\683d17803fd90.mkv",
+    "storageType": "unknown",
+    "cacheState": "unknown"
+  }
+}

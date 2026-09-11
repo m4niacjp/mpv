@@ -1,0 +1,194 @@
+{
+  "schemaVersion": 1,
+  "matrix": "C:\\Users\\andre\\PerfRuns\\vfs-bench-matrix-20260911-212832.json",
+  "conditions": [
+    {
+      "condition": "config-cold",
+      "kind": "plain",
+      "n": 1,
+      "openToFirstFrame1": {
+        "n": 1,
+        "min": 0.052,
+        "median": 0.052,
+        "max": 0.052
+      },
+      "nextToFirstFrame2": {
+        "n": 1,
+        "min": 3.382,
+        "median": 3.382,
+        "max": 3.382
+      },
+      "errors": 0,
+      "maxPrefetched": 3.0
+    },
+    {
+      "condition": "config-cold",
+      "kind": "procmon",
+      "n": 1,
+      "openToFirstFrame1": null,
+      "nextToFirstFrame2": {
+        "n": 1,
+        "min": 1.07,
+        "median": 1.07,
+        "max": 1.07
+      },
+      "errors": 0,
+      "maxPrefetched": 3.0
+    },
+    {
+      "condition": "config-cold",
+      "kind": "wpr",
+      "n": 1,
+      "openToFirstFrame1": null,
+      "nextToFirstFrame2": {
+        "n": 1,
+        "min": 4.169,
+        "median": 4.169,
+        "max": 4.169
+      },
+      "errors": 0,
+      "maxPrefetched": 3.0
+    },
+    {
+      "condition": "config-warm",
+      "kind": "plain",
+      "n": 1,
+      "openToFirstFrame1": {
+        "n": 1,
+        "min": 0.059,
+        "median": 0.059,
+        "max": 0.059
+      },
+      "nextToFirstFrame2": {
+        "n": 1,
+        "min": 0.047,
+        "median": 0.047,
+        "max": 0.047
+      },
+      "errors": 0,
+      "maxPrefetched": 3.0
+    },
+    {
+      "condition": "config-warm",
+      "kind": "procmon",
+      "n": 1,
+      "openToFirstFrame1": null,
+      "nextToFirstFrame2": {
+        "n": 1,
+        "min": 0.072,
+        "median": 0.072,
+        "max": 0.072
+      },
+      "errors": 0,
+      "maxPrefetched": 3.0
+    },
+    {
+      "condition": "config-warm",
+      "kind": "wpr",
+      "n": 1,
+      "openToFirstFrame1": null,
+      "nextToFirstFrame2": {
+        "n": 1,
+        "min": 0.117,
+        "median": 0.117,
+        "max": 0.117
+      },
+      "errors": 0,
+      "maxPrefetched": 3.0
+    },
+    {
+      "condition": "noconfig-cold",
+      "kind": "plain",
+      "n": 1,
+      "openToFirstFrame1": {
+        "n": 1,
+        "min": 0.359,
+        "median": 0.359,
+        "max": 0.359
+      },
+      "nextToFirstFrame2": {
+        "n": 1,
+        "min": 1.769,
+        "median": 1.769,
+        "max": 1.769
+      },
+      "errors": 0,
+      "maxPrefetched": 0.0
+    },
+    {
+      "condition": "noconfig-cold",
+      "kind": "procmon",
+      "n": 1,
+      "openToFirstFrame1": null,
+      "nextToFirstFrame2": {
+        "n": 1,
+        "min": 2.396,
+        "median": 2.396,
+        "max": 2.396
+      },
+      "errors": 0,
+      "maxPrefetched": 0.0
+    },
+    {
+      "condition": "noconfig-cold",
+      "kind": "wpr",
+      "n": 1,
+      "openToFirstFrame1": null,
+      "nextToFirstFrame2": {
+        "n": 1,
+        "min": 0.728,
+        "median": 0.728,
+        "max": 0.728
+      },
+      "errors": 0,
+      "maxPrefetched": 0.0
+    },
+    {
+      "condition": "noconfig-warm",
+      "kind": "plain",
+      "n": 1,
+      "openToFirstFrame1": {
+        "n": 1,
+        "min": 0.305,
+        "median": 0.305,
+        "max": 0.305
+      },
+      "nextToFirstFrame2": {
+        "n": 1,
+        "min": 0.073,
+        "median": 0.073,
+        "max": 0.073
+      },
+      "errors": 0,
+      "maxPrefetched": 0.0
+    },
+    {
+      "condition": "noconfig-warm",
+      "kind": "procmon",
+      "n": 1,
+      "openToFirstFrame1": null,
+      "nextToFirstFrame2": {
+        "n": 1,
+        "min": 0.08,
+        "median": 0.08,
+        "max": 0.08
+      },
+      "errors": 0,
+      "maxPrefetched": 0.0
+    },
+    {
+      "condition": "noconfig-warm",
+      "kind": "wpr",
+      "n": 1,
+      "openToFirstFrame1": null,
+      "nextToFirstFrame2": {
+        "n": 1,
+        "min": 0.08,
+        "median": 0.08,
+        "max": 0.08
+      },
+      "errors": 0,
+      "maxPrefetched": 0.0
+    }
+  ]
+}

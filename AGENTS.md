@@ -133,3 +133,7 @@ when sorting a large autocreate playlist. `--autocreate-playlist=filter|same`
 opens a local regular file first and scans siblings on a worker; the core splices
 remaining entries in bulk (reuses the worker playlist). The playlist may
 grow after `file-loaded`.
+
+For checkout-local VFS cold/warm measurements, see the
+[harness notes](DOCS/local-workflow.md#vfs-coldwarm-benchmark-harness) and
+`benchmarks\vfs-bench\handoff.md`.

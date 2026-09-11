@@ -1,0 +1,8 @@
+"arm","trial","input_alias","input_bytes","launch_to_t1_ms","first_next_at_t1_ms","next_attempts","next_gap_ms","success_next_to_t4_ms","t4_to_quit_ms","quit_to_exit_ms","exit_code","notes"
+"real","t0","rank-101-of-257","70944895","1106.855","5026.472","1","","812.5","1.98","1103.004","0","WPR light trace; batch summary overwritten by Procmon pass; latencies from per-trial event files"
+"real","t1","rank-63-of-257","401439207","1146.87","5017.306","5","","4170.6","6.612","694.692","0","WPR light trace; batch summary overwritten by Procmon pass; latencies from per-trial event files"
+"real","t2","rank-44-of-257","116662298","1122.994","5010.908","7","","3236.5","0.174","923.788","0","WPR light trace; batch summary overwritten by Procmon pass; latencies from per-trial event files"
+"control","t3","rank-244-of-257","320376561","397.8","5042.4","1","0.465","120.4","1.94","352.3","0","WPR light trace"
+"control","t4","rank-39-of-257","398189639","1216.3","5006","1","0.297","483.5","1.08","107.2","0","WPR light trace"
+"control","t5","rank-188-of-257","419756111","389.6","5006.2","1","0.412","86.3","0.2","60.2","0","WPR light trace"
+"real-procmon","t6","rank-95-of-257","87177521","480.1","5033.466","2","0.465","1258.8","2.2","3512.6","0","Procmon observer pass; timings observer-inflated"
