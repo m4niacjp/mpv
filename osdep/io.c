@@ -618,7 +618,9 @@ struct dirent* mp_readdir(DIR *dir)
     mpdir->dirent.d_ino = 0;
     mpdir->dirent.d_reclen = 0;
     mpdir->dirent.d_namlen = strlen(mpdir->dirent.d_name);
+#ifdef _DIRENT_HAVE_D_TYPE
     mpdir->dirent.d_type = wdirent->d_type;
+#endif
     return &mpdir->dirent;
 }
 

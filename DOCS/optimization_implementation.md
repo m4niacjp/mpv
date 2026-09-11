@@ -8,7 +8,7 @@ This document outlines the architectural plan, technical specifications, multi-a
 
 | Phase | Focus Area | Status | Key Deliverables |
 |---|---|---|---|
-| **Phase 1** | **Core Scanning & Looping** | **COMPLETED** | `d_type` fast-path in `scan_dir()`, Windows `d_type` propagation in `mp_readdir()`, `playlist_entry_get_next_cyclic()`, `mp_path_compare()`. |
+| **Phase 1** | **Core Scanning & Looping** | **COMPLETED** | `d_type` fast-path in `scan_dir()`, Windows `d_type` propagation in `mp_readdir()` where the dirent ABI provides it, `playlist_entry_get_next_cyclic()`, `mp_path_compare()`. |
 | **Phase 2** | **Memory & Observability** | **COMPLETED** | Tiered multi-entry cache bounding, `prefetched-count`, `prefetch-active`, and `playlist/N/prefetched` properties. |
 | **Phase 3** | **Async External Tracks** | **COMPLETED** | Background discovery of external subtitles/audio companion tracks during prefetch in `open_demux_thread()`. |
 | **Phase 4** | **VFS & Remote Streaming Tuning** | **DOCUMENTED** | Optimal buffer sizing, WinFsp IPC minimization, container probe tuning, and zero-copy rendering configuration. |
@@ -24,7 +24,7 @@ This document outlines the architectural plan, technical specifications, multi-a
 #### Problem Statement
 In `scan_dir()` (`demux/demux_playlist.c`), mpv previously executed `stat(file, &st)` on **every single file** in the directory to check `S_ISDIR(st.st_mode)` when `dir_mode != DIR_IGNORE`. On folders with 1,000+ files or network mounts (SMB/NFS/rclone), thousands of synchronous `stat()` calls delayed sibling discovery.
 
-Furthermore, on Windows, while `osdep/dirent-win.h` computed `d_type` from `WIN32_FIND_DATAW.dwFileAttributes` in `_wreaddir_r()`, the POSIX translation wrapper `mp_readdir()` in `osdep/io.c` omitted assigning `mpdir->dirent.d_type = wdirent->d_type`. This caused `ep->d_type` to remain uninitialized/0 (`DT_UNKNOWN`) on Windows, completely bypassing the `d_type` fast-path and forcing thousands of redundant `CreateFileW` / `GetFileInformationByHandleEx` system calls.
+Furthermore, on the non-MinGW Windows path, while `osdep/dirent-win.h` computed `d_type` from `WIN32_FIND_DATAW.dwFileAttributes` in `_wreaddir_r()`, the POSIX translation wrapper `mp_readdir()` in `osdep/io.c` omitted assigning `mpdir->dirent.d_type = wdirent->d_type`. This caused `ep->d_type` to remain uninitialized/0 (`DT_UNKNOWN`) on that path, completely bypassing the `d_type` fast-path and forcing thousands of redundant `CreateFileW` / `GetFileInformationByHandleEx` system calls. MinGW UCRT64 headers do not expose `d_type`; on that path the assignment is compiled out and directory scanning keeps the existing `stat()` fallback.
 
 #### Implemented Solution
 1. **Enabled `_DIRENT_HAVE_D_TYPE` checking across all directory modes (`demux/demux_playlist.c`)**:
@@ -32,7 +32,7 @@ Furthermore, on Windows, while `osdep/dirent-win.h` computed `d_type` from `WIN3
    - When `ep->d_type == DT_DIR`:
      - If `dir_mode == DIR_IGNORE`: skips immediately with zero `stat()` calls.
      - If `dir_mode == DIR_LAZY` or `DIR_RECURSIVE`: calls `stat()` only on directories for loop detection stack (`dir_stack`).
-   - Falls back to `stat()` only for `DT_UNKNOWN`, `DT_LNK` (symlinks/reparse points), or non-`d_type` filesystems.
+   - Falls back to `stat()` for `DT_UNKNOWN`, `DT_LNK` (symlinks/reparse points), other non-regular/non-directory `d_type` values, non-`d_type` filesystems, or platforms whose dirent headers do not expose `d_type`.
 2. **Fixed Windows `d_type` Propagation in `osdep/io.c`**:
    ```c
    struct dirent* mp_readdir(DIR *dir)
@@ -47,7 +47,9 @@ Furthermore, on Windows, while `osdep/dirent-win.h` computed `d_type` from `WIN3
        mpdir->dirent.d_ino = 0;
        mpdir->dirent.d_reclen = 0;
        mpdir->dirent.d_namlen = strlen(mpdir->dirent.d_name);
+   #ifdef _DIRENT_HAVE_D_TYPE
        mpdir->dirent.d_type = wdirent->d_type;
+   #endif
        return &mpdir->dirent;
    }
    ```
@@ -567,7 +569,7 @@ left unchanged by the HDR path.
 +---------------------------------------------------------------------------------------+
 | Phase 1: Core Scanning & Looping (Low Risk, High Impact)                 [COMPLETED]  |
 |   [x] Implement `d_type` fast-path in `demux_playlist.c`                              |
-|   [x] Fix Windows `d_type` propagation in `osdep/io.c` (`mp_readdir`)                 |
+|   [x] Fix Windows `d_type` propagation in `osdep/io.c` (`mp_readdir`, when available) |
 |   [x] Add `playlist_entry_get_next_cyclic` for `--loop-playlist` prefetching          |
 |   [x] Path comparison normalization on DOS/Darwin paths (`mp_path_compare`)           |
 |   [x] Unit tests in `test/paths.c` and cyclic prefetch test in `test_prefetch.c`      |
@@ -635,6 +637,6 @@ left unchanged by the HDR path.
   - Verified continuous cyclic prefetch across loop boundaries.
   - Verified `prefetched-count`, `prefetch-active`, and `playlist/N/prefetched` properties via player property inspection.
   - Verified multi-entry memory bounding: 5 prefetched entries consume ~1.15 GiB instead of ~5.12 GiB.
-  - Verified Windows `d_type` propagation and `FindExInfoBasic` / `LARGE_FETCH` eliminating thousands of redundant `stat()` calls in directories.
+  - Verified Windows `d_type` propagation where the dirent ABI exposes it, and `FindExInfoBasic` / `LARGE_FETCH` eliminating thousands of redundant `stat()` calls in directories.
   - Verified asynchronous companion subtitle discovery during prefetch with 0ms transition latency and zero redundant `stat()` calls for regular files.
   - Verified **Asynchronous Frame Pre-Decoding in RAM** (`vd-queue-enable=yes`, `ad-queue-enable=yes`): Played dozens of 4K/1080p AV1 and H264 videos sequentially from `X:\XXX\Best` with instantaneous transitions and seamless 0ms frame presentation.
