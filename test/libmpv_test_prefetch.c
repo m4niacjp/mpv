@@ -35,7 +35,9 @@ static int prefetch_count;
 static int opening_done_count;
 static int using_prefetched_count;
 static int start_window_ready_count;
+static int prefetch_count_at_start_window_ready;
 static int autocreate_count;
+static int wrong_url_abort_count;
 
 static void process_event(mpv_event *event)
 {
@@ -52,10 +54,14 @@ static void process_event(mpv_event *event)
         opening_done_count++;
     if (strstr(msg->text, "Using prefetched URL"))
         using_prefetched_count++;
-    if (strstr(msg->text, "Prefetch start window ready."))
+    if (strstr(msg->text, "Prefetch start window ready.")) {
         start_window_ready_count++;
+        prefetch_count_at_start_window_ready = prefetch_count;
+    }
     if (strstr(msg->text, "Autocreate playlist:"))
         autocreate_count++;
+    if (strstr(msg->text, "Aborting ongoing prefetch of wrong URL"))
+        wrong_url_abort_count++;
 }
 
 static void append_file(const char *file)
@@ -170,6 +176,7 @@ static void test_prefetch_start_window(void)
     opening_done_count = 0;
     using_prefetched_count = 0;
     start_window_ready_count = 0;
+    prefetch_count_at_start_window_ready = -1;
 
     set_property_string("prefetch-playlist", "yes");
     set_property_string("prefetch-playlist-max", "2");
@@ -185,12 +192,24 @@ static void test_prefetch_start_window(void)
     const char *play[] = {"playlist-play-index", "0", NULL};
     command(play);
     wait_for_file_loaded();
-    drain_events(1.5);
 
-    if (prefetch_count < 1)
-        fail("start-window did not prefetch the immediate next entry\n");
-    if (prefetch_count > 1)
-        fail("start-window opened extra entries too early (%d)\n", prefetch_count);
+    while (!start_window_ready_count) {
+        mpv_event *event = mpv_wait_event(ctx, 5);
+        if (event->event_id == MPV_EVENT_NONE)
+            fail("timed out waiting for start-window readiness\n");
+        process_event(event);
+    }
+
+    if (prefetch_count_at_start_window_ready != 1)
+        fail("start-window had %d prefetched entries at readiness\n",
+             prefetch_count_at_start_window_ready);
+
+    while (prefetch_count < 2) {
+        mpv_event *event = mpv_wait_event(ctx, 5);
+        if (event->event_id == MPV_EVENT_NONE)
+            fail("timed out waiting for post-readiness prefetch\n");
+        process_event(event);
+    }
 }
 
 static void test_autocreate_playlist(const char *file)
@@ -354,6 +373,90 @@ static void test_prefetch_external_files(const char *file)
 #endif
 }
 
+// A playlist command issued from the on_before_start_file hook runs while
+// play_current_file() has already zeroed stop_play and the selected entry is
+// not yet mpctx->playing. prefetch_next() must not start an open in that
+// window: the main open would abort it as a wrong-URL prefetch and wait for
+// the opener to unwind. Hooks cannot be removed, so this test runs last.
+static void test_prefetch_hook_command(void)
+{
+    command_string("stop");
+    drain_events(1);
+    prefetch_count = 0;
+    opening_done_count = 0;
+    using_prefetched_count = 0;
+    wrong_url_abort_count = 0;
+
+    set_property_string("prefetch-playlist", "yes");
+    set_property_string("prefetch-playlist-max", "2");
+    set_property_string("prefetch-playlist-realtime", "yes");
+    set_property_string("prefetch-playlist-start-secs", "0");
+    set_property_string("prefetch-playlist-start-bytes", "0");
+    set_property_string("pause", "yes");
+    set_property_string("image-display-duration", "inf");
+
+    append_file("av://lavfi:testsrc=size=16x16:rate=1");
+    append_file("av://lavfi:testsrc=size=16x16:rate=1");
+    append_file("av://lavfi:testsrc=size=16x16:rate=1");
+
+    if (mpv_hook_add(ctx, 0, "on_before_start_file", 50) < 0)
+        fail("failed to register on_before_start_file hook\n");
+
+    const char *play[] = {"playlist-play-index", "0", NULL};
+    command(play);
+
+    bool hooked = false;
+    while (!hooked) {
+        mpv_event *event = mpv_wait_event(ctx, 5);
+        if (event->event_id == MPV_EVENT_NONE)
+            fail("timed out waiting for the on_before_start_file hook\n");
+        if (event->event_id == MPV_EVENT_HOOK) {
+            mpv_event_hook *hook = event->data;
+            const char *reorder[] = {"playlist-reorder", "0,1,2", NULL};
+            command(reorder);
+            drain_events(0.2);
+            if (prefetch_count)
+                fail("prefetch started while the file start was pending\n");
+            if (mpv_hook_continue(ctx, hook->id) < 0)
+                fail("failed to continue the on_before_start_file hook\n");
+            hooked = true;
+        } else {
+            process_event(event);
+        }
+    }
+
+    bool loaded = false;
+    while (!loaded) {
+        mpv_event *event = mpv_wait_event(ctx, 5);
+        if (event->event_id == MPV_EVENT_NONE)
+            fail("timed out waiting for the hooked file to load\n");
+        if (event->event_id == MPV_EVENT_HOOK) {
+            mpv_event_hook *hook = event->data;
+            mpv_hook_continue(ctx, hook->id);
+            continue;
+        }
+        process_event(event);
+        if (event->event_id == MPV_EVENT_FILE_LOADED)
+            loaded = true;
+    }
+
+    while (prefetch_count < 1) {
+        mpv_event *event = mpv_wait_event(ctx, 5);
+        if (event->event_id == MPV_EVENT_NONE)
+            fail("timed out waiting for prefetch after the file start\n");
+        if (event->event_id == MPV_EVENT_HOOK) {
+            mpv_event_hook *hook = event->data;
+            mpv_hook_continue(ctx, hook->id);
+            continue;
+        }
+        process_event(event);
+    }
+
+    if (wrong_url_abort_count)
+        fail("wrong-URL prefetch abort happened %d time(s)\n",
+             wrong_url_abort_count);
+}
+
 int main(int argc, char *argv[])
 {
     if (argc != 2)
@@ -379,6 +482,8 @@ int main(int argc, char *argv[])
     test_autocreate_playlist(argv[1]);
     printf("================ TEST: test_prefetch_external_files ================\n");
     test_prefetch_external_files(argv[1]);
+    printf("================ TEST: test_prefetch_hook_command ================\n");
+    test_prefetch_hook_command();
     printf("================ SHUTDOWN ================\n");
 
     command_string("quit");

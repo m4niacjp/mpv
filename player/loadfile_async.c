@@ -523,11 +523,13 @@ void prefetch_next(struct MPContext *mpctx)
         return;
     }
 
-    // mp_set_playlist_entry() changes playlist->current before the old file
-    // finishes teardown. Keep the selected entry adoptable until
-    // play_current_file() makes it mpctx->playing and claims its demuxer.
-    if (mpctx->stop_play == PT_CURRENT_ENTRY && mpctx->playlist->current &&
-        mpctx->playlist->current != mpctx->playing &&
+    // The playloop and mp_set_playlist_entry() select playlist->current
+    // before the old file finishes teardown; play_current_file() then zeroes
+    // stop_play before it makes that entry mpctx->playing. Hooks and events
+    // run in between and may call back into playlist commands, so keep the
+    // selected entry adoptable for the whole handover.
+    struct playlist_entry *current = mpctx->playlist->current;
+    if (current && current != mpctx->playing &&
         !mpctx->playlist->current_was_replaced)
     {
         return;
