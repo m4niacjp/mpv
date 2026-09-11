@@ -423,18 +423,24 @@ static int cmp_dir_entry(const void *a, const void *b)
     }
 }
 
+static bool is_include_path(struct pl_parser *p, char *path)
+{
+    if (!p->include_path)
+        return false;
+
+    char *norm = mp_normalize_path(NULL, path);
+    bool match = norm && mp_path_compare(norm, p->include_path) == 0;
+    talloc_free(norm);
+    return match;
+}
+
 static bool test_path(struct pl_parser *p, char *path, int autocreate)
 {
     if (autocreate & AUTO_ANY)
         return true;
 
-    if (p->include_path) {
-        char *norm = mp_normalize_path(NULL, path);
-        bool match = norm && mp_path_compare(norm, p->include_path) == 0;
-        talloc_free(norm);
-        if (match)
-            return true;
-    }
+    if (is_include_path(p, path))
+        return true;
 
     bstr ext = mp_get_ext(bstr0(path));
     if (autocreate & AUTO_VIDEO && bstr_in_list0(ext, p->mp_opts->video_exts))
@@ -509,6 +515,17 @@ static bool scan_dir(struct pl_parser *p, char *path,
 #endif
 
         char *file = mp_path_join(p, path, ep->d_name);
+
+        // The include path (the playing file that triggered this scan) is
+        // known to be a regular file, since opening a directory would have
+        // been handled by the directory demuxer instead. Avoid the stat()
+        // below for it: on slow file systems stat()ing the file that is
+        // currently being streamed can block for seconds, stalling the scan.
+        if (is_include_path(p, file)) {
+            struct pl_dir_entry f = {file, &file[path_len], .is_dir = false};
+            MP_TARRAY_APPEND(p, dir_entries, num_dir_entries, f);
+            continue;
+        }
 
         struct stat st;
         if (stat(file, &st) == 0 && S_ISDIR(st.st_mode)) {
