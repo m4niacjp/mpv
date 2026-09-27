@@ -18,6 +18,17 @@ deployment command in [AGENTS.md](../AGENTS.md#this-windows-checkout-targeted-bu
 It builds `mpv.exe` and `mpv.com` only, then refreshes the packaged binaries.
 Do not treat that machine-specific command as the general upstream build path.
 
+This checkout keeps two Meson trees. `build/` is the normal `-Dtests=true`
+tree. `build-static/` additionally links statically (for a self-contained
+`libmpv`); recreate it with:
+
+```powershell
+meson setup build-static -Dtests=true -Ddefault_library=static -Dprefer_static=true -Dc_link_args=-static -Dcpp_link_args=-static
+```
+
+Both are untracked build output, so either can be deleted and recreated; the
+`build-static` configure line above is the only record of it.
+
 ## Repository identity and remotes
 
 The canonical clone and publication repository for this checkout is the

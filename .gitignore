@@ -1,3 +1,16 @@
 /subprojects/*
 !/subprojects/packagefiles
 !/subprojects/*.wrap
+
+# Local-only build, runtime, and tooling artifacts (personal checkout).
+/build/
+/build-static/
+/dist/
+/logs/
+/traces/
+/measurements/
+/exports/
+/tasks/
+/install.cmd
+/remember-rtx.state
+/output.csv
