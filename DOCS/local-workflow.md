@@ -200,10 +200,85 @@ version them separately, and include them in compatibility testing when an
 upstream import changes options, Lua events, playlist commands, or prefetch
 behavior.
 
+### Roaming workstream
+
+Treat that tree as a second workstream, not as incidental configuration. It
+holds `mpv.conf`, `input.conf`, `scripts\*.lua`, `script-opts\` /
+`scripts-opts\`, `Docs\INTERNAL.md` and `Docs\Reference\*.md`,
+`tests\*-regression.lua`, `backups\`, and `.agent-memory\<role>\`, and it carries
+its own `AGENTS.md`.
+
+- **Which tree changes?** Decide by where the edit lands, not by vocabulary: a
+  claim about `RTX HDR`, `prefetch-playlist-*`, or a `user-data` property is a
+  Roaming task when the Lua, `mpv.conf`, or menu is what must change, and a
+  checkout task when mpv's C, Meson, or `DOCS/man/` is.
+- **File sandbox:** Roaming is outside the session workspace, so writes there are
+  denied. Retry the exact operation once with `danger-full-access` and a
+  justification — that retry raises the approval prompt. If the escalation is
+  unavailable, stage the reviewed change inside the checkout and hand it back;
+  never report a Roaming edit as landed when it is only staged.
+- **Delegation:** this environment exposes no agent-type selector, so routing a
+  Roaming Lua task to the `mpv-lua-scripter` role means giving a `subagent` a
+  self-contained prompt that carries the role's rules, then reviewing, landing,
+  and verifying its diff here. Keep inline Roaming edits out of the parent task.
+- **Backups:** copy each file to be changed into Roaming `backups\` first, as
+  `<name>-before-<short-reason>-<YYYYMMDD-HHMMSS>`.
+- **Reload:** Roaming Lua is not hot-reloaded; mpv must restart to pick up a
+  script change.
+- Finish with a harness run (below), or state explicitly what could not be
+  verified — real playback, display, and GPU behavior usually needs the user.
+
+### Precedence and ground truth
+
+When a checkout document and a Roaming document disagree, neither guide is
+authoritative: the live `%APPDATA%\mpv\mpv.conf` and the current source win, and
+the reconciliation belongs in the same change. Worked example: the checkout
+guide, `mpv.conf`, `DOCS/man/vf.rst`, and Roaming
+`Docs\Reference\RTX_VIDEO.md` use `hwdec=d3d11va`, while older Roaming prose
+said `hwdec=d3d11va-copy`.
+
 The tracked onboarding set is `AGENTS.md` and `DOCS/local-workflow.md`. Keep
 unrelated local tooling and build artifacts out of scope unless the task
 explicitly includes them; inspect the current worktree rather than relying on a
 clean-tree snapshot.
+
+### Mock-mpv Lua harness
+
+Roaming scripts are covered by standalone harnesses that stub the `mp` API
+(`tests\playlist-sort-regression.lua`, `tests\quick-menu-rtx-hdr-regression.lua`):
+
+- Load the target with `package.preload["mp"]` (plus `mp.msg` and `mp.assdraw`),
+  `_G.mp = <mock>`, then `dofile(target)`; allow an env override for the target
+  path (for example `MPV_QUICK_MENU_SCRIPT`) so a staged copy can be tested
+  before it is installed.
+- Drive the script only through the entry points it registers
+  (`mp.add_hook`, `mp.register_event`, `mp.observe_property`, forced key
+  bindings, `register_script_message`). No sleeps, no real media, no network.
+- End with `os.exit(failures == 0 and 0 or 1)` and print one
+  `PASS:`/`FAILURES:` line.
+- Run it without the real config:
+  `mpv --no-config --load-scripts=no --vo=null --ao=null --idle=yes --script=<harness>`.
+  Use the console wrapper for visible output; with only the GUI-subsystem
+  `mpv.exe`, redirect stdout/stderr to files and read the exit code from the
+  process object, because the status line arrives on stderr.
+- A harness must fail loudly: never weaken or delete an assertion to make a run
+  pass. Assert on observable effects (property writes, `vf` commands, overlay
+  text), and note any layout or geometry constants the assertions depend on.
+- A new Roaming script change also needs the existing harnesses re-run, so a
+  regression in an unrelated script is still caught.
+
+### Local agent conventions
+
+- `.agent-memory\<role>\MEMORY.md` (tracked) is per-role durable memory for
+  `codebase-explorer`, `doc-keeper`, `doc-search`, `web-search`, and
+  `windows-performance-debugging`. Read the relevant role's memory before docs
+  or analysis work.
+- `doc-keeper` owns `DOCS/references/libraries/**` bodies; user-visible behavior
+  belongs in `DOCS/man/`, interface notes in `DOCS/interface-changes/`. Keep the
+  existing `README.md` / `AGENTS.md` / `DOCS/` layout and never create a
+  lowercase `docs/` tree.
+- `tasks\*.md` (untracked) holds per-run worker/verifier reports; keep them out
+  of commits.
 
 ## VFS cold/warm benchmark harness
 

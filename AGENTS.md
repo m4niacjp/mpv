@@ -18,6 +18,12 @@ onboarding map, not a substitute for source verification.
    [player/options/input](DOCS/man/mpv.rst), [commands](DOCS/man/commands.rst),
    [options](DOCS/man/options.rst), [Lua](DOCS/man/lua.rst), and
    [libmpv](DOCS/man/libmpv.rst) with its public headers in `include/mpv/`.
+6. Remaining checkout docs: [DOCS/references/README.md](DOCS/references/README.md)
+   indexes library/subsystem summaries,
+   [DOCS/optimization_implementation.md](DOCS/optimization_implementation.md)
+   holds the local RTX/playlist notes and the `user-data` interface table,
+   [DOCS/compile-windows.md](DOCS/compile-windows.md) covers Windows builds, and
+   [DOCS/interface-changes/](DOCS/interface-changes/) holds interface notes.
 
 ## First successful change
 
@@ -57,6 +63,11 @@ The explicit targets avoid unrelated optional tools in the default build. See
 setups. Player behavior that affects the local runtime should finish with this
 targeted build and `dist\` refresh.
 
+`dist\` can be partially refreshed, so `Test-Path dist\mpv.exe,dist\mpv.com`
+before relying on either. Use `mpv.com` for visible console output; with only
+the GUI-subsystem `mpv.exe` present, redirect stdout/stderr and read the exit
+code instead.
+
 ## Subsystem map
 
 | Area | Current source | Focused tests to inspect | Primary docs |
@@ -86,7 +97,9 @@ nearby tests to establish what is actually exercised.
   the staged review, verification, and remote-SHA proof in
   [DOCS/local-workflow.md](DOCS/local-workflow.md#reviewing-and-importing-upstream-changes).
 - Unit tests are normally named after their subject; libmpv integration tests
-  use `libmpv_test_*.c`, and expected output belongs in `test/ref/`.
+  use `libmpv_test_*.c`, and expected output belongs in `test/ref/`. Roaming
+  Lua changes are covered by mock harnesses under `%APPDATA%\mpv\tests\`, not by
+  meson (see [DOCS/local-workflow.md](DOCS/local-workflow.md#mock-mpv-lua-harness)).
 - User-visible behavior belongs in `DOCS/man/`; incompatible interfaces require
   a note in `DOCS/interface-changes/`. Keep documentation in the same logical
   change.
@@ -97,43 +110,33 @@ nearby tests to establish what is actually exercised.
   commits.
 - New code is LGPLv2.1+. Disclose AI/LLM assistance in a PR description.
 
-## Local user-script routing
+## Workstreams and routing
 
-This checkout also has a personal runtime configuration at
-`C:\Users\andre\AppData\Roaming\mpv\`; packaged binaries are in `dist/`.
-For a user Lua script there, or `mpv.conf`, `input.conf`, or `script-opts/`
-glue that supports it, route the work to the designated `mpv-lua-scripter`
-agent/role using the active environment's delegation mechanism. Do not edit
-that Roaming Lua or Lua-wired configuration inline in the parent task.
+Two trees are in play; decide which one the task changes before reading code.
 
-This routing does not apply to built-in `player/lua/` or normal upstream C/Meson
-work. Roaming `*.lua` client names replace non-alphanumeric characters with `_`
-(`playlist-sort.lua` is `playlist_sort` for `script-message-to`).
+- **This checkout** is mpv itself: C, Meson, `DOCS/man/`, `test/`. Use the build
+  and test paths above.
+- **Roaming** (`C:\Users\andre\AppData\Roaming\mpv\`) is the personal runtime:
+  `mpv.conf`, `input.conf`, `script-opts/`, `scripts/*.lua`, its own `AGENTS.md`
+  and `Docs/`, and mock harnesses in `tests/`. A behavior claim that names an
+  mpv option or filter is still a Roaming task when the file that must change
+  lives there.
 
-The local RTX Video setup requires `vo=gpu-next`, `gpu-api=d3d11`,
-`gpu-context=d3d11`, and `hwdec=d3d11va`. `nvidia-true-hdr` is a `d3d11vpp`
-filter parameter (`vf=d3d11vpp=nvidia-true-hdr`), not a top-level `mpv.conf`
-option. `rtx-video-auto.lua` must check both `video-params/hw-pixelformat` and
-`video-params/pixelformat`; with `d3d11va`, the hardware property can be the
-only usable format value. See the [RTX Video notes](DOCS/optimization_implementation.md)
-for the full integration details.
+- Route Roaming `*.lua` / `mpv.conf` / `input.conf` / `script-opts/` work to the
+  `mpv-lua-scripter` role — in this environment, a `subagent` prompt carrying
+  that role's rules — instead of editing it inline. This does not apply to
+  built-in `player/lua/` or normal C/Meson work. Roaming is outside the file
+  sandbox, so its writes need the documented escalation or a staged handback.
+- Roaming `*.lua` client names replace non-alphanumeric characters with `_`
+  (`playlist-sort.lua` is `playlist_sort` for `script-message-to`).
+- When documents disagree, the live `%APPDATA%\mpv\mpv.conf` and the current
+  source win over any guide; reconcile in the same change.
 
-For local playlist-prefetch testing, the Roaming `mpv.conf` may set
-`prefetch-playlist-on-cache=yes`, `prefetch-playlist-cache-secs=<seconds>`,
-`prefetch-playlist-cache-bytes=<bytesize>`, `prefetch-playlist-max`,
-`prefetch-playlist-realtime=yes`, `prefetch-playlist-start-secs`, and
-`prefetch-playlist-start-bytes`. Next-1 fills the start window first; extra
-`prefetch-playlist-max` entries wait until that window is full (both start
-options 0 = immediate full-cache fill). Playlist-move, playlist-reorder,
-shuffle, unshuffle, remove, and clear retarget prefetch to the new next
-entries instead of keeping a stale previous next. `playlist-reorder` is a
-one-shot permutation by current 0-based indexes (does not restart the current
-file; one prefetch retarget). Use it instead of many `playlist-move` calls
-when sorting a large autocreate playlist. `--autocreate-playlist=filter|same`
-opens a local regular file first and scans siblings on a worker; the core splices
-remaining entries in bulk (reuses the worker playlist). The playlist may
-grow after `file-loaded`.
-
-For checkout-local VFS cold/warm measurements, see the
-[harness notes](DOCS/local-workflow.md#vfs-coldwarm-benchmark-harness) and
+The Roaming `AGENTS.md` and `Docs/` cover the personal configuration, and
+[DOCS/local-workflow.md](DOCS/local-workflow.md#roaming-workstream) covers the
+sandbox, delegation, and harness procedure. Prefetch and reorder semantics are
+the manual's (`--prefetch-playlist` in
+[DOCS/man/options.rst](DOCS/man/options.rst), `playlist-reorder` in
+[DOCS/man/input.rst](DOCS/man/input.rst)); for VFS cold/warm measurements see
+the [harness notes](DOCS/local-workflow.md#vfs-coldwarm-benchmark-harness) and
 `benchmarks\vfs-bench\handoff.md`.

@@ -558,8 +558,33 @@ track format name), so hardware-decoded NV12/P010/D3D11 frames are not
 mistakenly rejected.
 
 The script enables NVIDIA VSR with `scaling-mode=nvidia` when upscaling and
-requests `nvidia-true-hdr=yes` only for SDR input. Already-HDR sources are
-left unchanged by the HDR path.
+requests `nvidia-true-hdr=yes` only for SDR input. Already-HDR sources are left
+unchanged by the HDR path, and that layer is silent, so a claim such as "RTX HDR
+is disabled for HDR video" is only half the contract unless it also names the
+menu layer:
+
+| Layer | What decides it | Where |
+| --- | --- | --- |
+| Filter | `nvidia-true-hdr=yes` is appended only when the gamma is not PQ/HLG | `rtx-video-auto.lua` (`is_hdr_source`) |
+| Setting / UI | The **RTX HDR** row is drawn grey and non-interactive while the source is HDR | `quick-menu.lua` (`item_disabled` via `user-data/rtx/hdr-source`) |
+| Preference | The stored choice survives an HDR file and re-applies on SDR | `remember-rtx.lua` -> `~~/remember-rtx.state` |
+
+The `user-data` contract shared by the checkout and the Roaming scripts:
+
+| Property | Writers | Readers | Persisted |
+| --- | --- | --- | --- |
+| `user-data/rtx/vsr-enabled` | `quick-menu.lua`, `remember-rtx.lua` (restore) | `rtx-video-auto.lua`, `quick-menu.lua` | yes |
+| `user-data/rtx/hdr-enabled` | `quick-menu.lua`, `remember-rtx.lua` (restore) | `rtx-video-auto.lua`, `quick-menu.lua` | yes |
+| `user-data/rtx/hdr-source` | `rtx-video-auto.lua` (`update_filter`) | `quick-menu.lua` | no, session-only |
+| `user-data/detail/mode` | `quick-menu.lua`, `remember-rtx.lua` (restore) | `rtx-video-auto.lua`, the `detail-*` profiles | yes |
+| `user-data/pip/active` | `pip-toggle.lua` | `rtx-video-auto.lua`, `quick-menu.lua` | no |
+| `user-data/playlist/sort-*`, `sort-restored` | `playlist-sort.lua`, `remember-rtx.lua` | `playlist-sort.lua`, `quick-menu.lua` | mode/direction yes |
+
+`user-data/rtx/hdr-source` is `true` only while the current track's
+`video-params/gamma` is PQ/HLG; it is `false` with no video track or an unknown
+gamma, and `quick-menu.lua` treats an absent property as enabled. Regression
+coverage for both layers lives in
+`%APPDATA%\mpv\tests\quick-menu-rtx-hdr-regression.lua`.
 
 ---
 
