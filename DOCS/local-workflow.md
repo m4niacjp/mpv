@@ -228,10 +228,6 @@ its own `AGENTS.md`.
   justification — that retry raises the approval prompt. If the escalation is
   unavailable, stage the reviewed change inside the checkout and hand it back;
   never report a Roaming edit as landed when it is only staged.
-- **Delegation:** this environment exposes no agent-type selector, so routing a
-  Roaming Lua task to the `mpv-lua-scripter` role means giving a `subagent` a
-  self-contained prompt that carries the role's rules, then reviewing, landing,
-  and verifying its diff here. Keep inline Roaming edits out of the parent task.
 - **Backups:** copy each file to be changed into Roaming `backups\` first, as
   `<name>-before-<short-reason>-<YYYYMMDD-HHMMSS>`.
 - **Reload:** Roaming Lua is not hot-reloaded; mpv must restart to pick up a
@@ -256,7 +252,10 @@ clean-tree snapshot.
 ### Mock-mpv Lua harness
 
 Roaming scripts are covered by standalone harnesses that stub the `mp` API
-(`tests\playlist-sort-regression.lua`, `tests\quick-menu-rtx-hdr-regression.lua`):
+(`tests\playlist-sort-regression.lua`, `tests\quick-menu-rtx-hdr-regression.lua`,
+`tests\render-detail-regression.lua`; the last one also loads the live
+`mpv.conf` through the real API to check the `detail-*` profiles, with an
+`MPV_CONF` override):
 
 - Load the target with `package.preload["mp"]` (plus `mp.msg` and `mp.assdraw`),
   `_G.mp = <mock>`, then `dofile(target)`; allow an env override for the target

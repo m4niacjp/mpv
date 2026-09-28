@@ -122,11 +122,8 @@ Two trees are in play; decide which one the task changes before reading code.
   mpv option or filter is still a Roaming task when the file that must change
   lives there.
 
-- Route Roaming `*.lua` / `mpv.conf` / `input.conf` / `script-opts/` work to the
-  `mpv-lua-scripter` role — in this environment, a `subagent` prompt carrying
-  that role's rules — instead of editing it inline. This does not apply to
-  built-in `player/lua/` or normal C/Meson work. Roaming is outside the file
-  sandbox, so its writes need the documented escalation or a staged handback.
+- Roaming is outside the file sandbox, so its writes need the documented
+  escalation or a staged handback; back up each file before changing it.
 - Roaming `*.lua` client names replace non-alphanumeric characters with `_`
   (`playlist-sort.lua` is `playlist_sort` for `script-message-to`).
 - When documents disagree, the live `%APPDATA%\mpv\mpv.conf` and the current
@@ -134,7 +131,7 @@ Two trees are in play; decide which one the task changes before reading code.
 
 The Roaming `AGENTS.md` and `Docs/` cover the personal configuration, and
 [DOCS/local-workflow.md](DOCS/local-workflow.md#roaming-workstream) covers the
-sandbox, delegation, and harness procedure. Prefetch and reorder semantics are
+sandbox, backup, and harness procedure. Prefetch and reorder semantics are
 the manual's (`--prefetch-playlist` in
 [DOCS/man/options.rst](DOCS/man/options.rst), `playlist-reorder` in
 [DOCS/man/input.rst](DOCS/man/input.rst)); for VFS cold/warm measurements see
