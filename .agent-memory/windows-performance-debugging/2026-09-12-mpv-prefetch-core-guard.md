@@ -63,6 +63,22 @@ new `dist\mpv.exe` logs neither and prefetches only after the file start
   vulkan, subrandr, and FFmpeg 8.1 instead of 9.0.1 — none of which the live
   config or Roaming scripts reference (`vo=gpu-next`, `gpu-api=d3d11`,
   `hwdec=d3d11va`, no `bd://`/vulkan/curl options).
+- **2026-10-02 later: UCRT64 parity rebuild supersedes that clang deployment.**
+  With MSYS2 reinstalled, `build/` was recreated as the UCRT64 tree
+  (`meson setup build -Dtests=true --wrap-mode=nofallback`; the pacman
+  `windres` handles `osdep/mpv.rc`, so the `RC` pin is only needed for the
+  clang tree) and compiled to
+  `B0420E867CFF6DF20873105A738A2AAEB0B7006FFF05CB95FBA68219739D9D1A`
+  (`v0.41.0-1125-g1ee8a6663`, built 2026-10-02 01:49:37, FFmpeg 9.0.2,
+  libplacebo 7.360.1), whose enabled-features string is byte-identical to the
+  Sep-12 baseline. `dist\mpv.exe` now holds it, and its `ldd` closure was copied
+  into `dist\` — required, not optional, because `dist\` is on `PATH`: with the
+  stale 9.0.1 `avcodec-63.dll` still in place, startup aborted with
+  `libavcodec: build version 63.1.102 incompatible with runtime version
+  63.1.101`. Verified after deploy: live `mpv.conf` parses (no `backstep-cache`
+  error), `--bluray-device`/`--curl-enabled`/`--vulkan-device`/`--vaapi-device`
+  are back, `d3d11vpp` present, null-output playback of an h264/aac clip runs to
+  `End of file`.
 - `dist\mpv.exe` refreshed to
   `7C30234D1D33419B111975302279D9489E5D150A18FA7D1F3C792363A0A7889F`
   (`v0.41.0-948-g2b0f9f46c-dirty`, built 2026-09-12 06:09:49); the previously

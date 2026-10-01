@@ -62,8 +62,10 @@ MSYSTEM=UCRT64 CHERE_INVOKING=1 /c/msys64/usr/bin/bash.exe -lc '
 ```
 
 `--wrap-mode=nofallback` keeps the build on the pacman packages instead of the
-tracked `subprojects/` wraps. `dist\` needs the `mpv.exe` runtime dependencies
-copied beside it (`ldd build/mpv.exe` for the list).
+tracked `subprojects/` wraps. `dist\` is on `PATH`, so the runtime dependencies
+must be refreshed with the binary: a stale `avcodec-*.dll` there shadows the
+new one and startup aborts with `build version … incompatible with runtime
+version …`. Copy the `ldd build/mpv.exe` closure next to `dist\mpv.exe`.
 
 **Visual Studio clang + `subprojects/` wraps (fallback when MSYS2 is absent).**
 From a Visual Studio x64 environment, build only the player targets and refresh
