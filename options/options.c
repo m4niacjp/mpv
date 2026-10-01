@@ -894,6 +894,7 @@ static const m_option_t mp_opts[] = {
         {"no", -1}, {"absolute", 0}, {"yes", 1}, {"always", 1}, {"default", 2})},
     {"hr-seek-demuxer-offset", OPT_FLOAT(hr_seek_demuxer_offset)},
     {"hr-seek-framedrop", OPT_BOOL(hr_seek_framedrop)},
+    {"backstep-cache", OPT_INT(backstep_cache), M_RANGE(0, 256)},
     {"autosync", OPT_CHOICE(autosync, {"no", -1}), M_RANGE(0, 10000)},
 
     {"term-osd", OPT_CHOICE(term_osd,
@@ -1053,6 +1054,7 @@ static const struct MPOpts mp_default_opts = {
     .chapter_seek_threshold = 5.0,
     .hr_seek = 2,
     .hr_seek_framedrop = true,
+    .backstep_cache = 16,
     .sync_max_video_change = 1,
     .sync_max_audio_change = 0.125,
     .sync_max_factor = 5,

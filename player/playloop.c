@@ -213,11 +213,15 @@ void update_screensaver_state(struct MPContext *mpctx)
                                                    : VOCTRL_KILL_SCREENSAVER, NULL);
 }
 
+static bool step_from_cache(struct MPContext *mpctx, int dir);
+
 void add_step_frame(struct MPContext *mpctx, int dir, bool use_seek)
 {
     if (!mpctx->vo_chain)
         return;
     if (dir > 0 && !use_seek) {
+        if (dir == 1 && step_from_cache(mpctx, 1))
+            return;
         mpctx->step_frames += dir;
         set_pause_state(mpctx, false);
     } else {
@@ -287,6 +291,27 @@ static double calculate_framestep_pts(MPContext *mpctx, double current_time,
     return current_time + pts;
 }
 
+// Show an adjacent frame from the backstep cache instead of seeking.
+static bool step_from_cache(struct MPContext *mpctx, int dir)
+{
+    if (!backstep_cache_step(mpctx, dir))
+        return false;
+
+    clear_audio_output_buffers(mpctx);
+    mpctx->start_timestamp = mp_time_sec();
+    mp_wakeup_core(mpctx);
+    mp_notify(mpctx, MPV_EVENT_SEEK, NULL);
+    mp_notify(mpctx, MPV_EVENT_TICK, NULL);
+    update_ab_loop_clip(mpctx);
+    mpctx->current_seek = (struct seek_params){
+        .type = MPSEEK_FRAMESTEP,
+        .amount = dir,
+        .exact = MPSEEK_VERY_EXACT,
+    };
+    redraw_subs(mpctx);
+    return true;
+}
+
 static void mp_seek(MPContext *mpctx, struct seek_params seek)
 {
     struct MPOpts *opts = mpctx->opts;
@@ -298,6 +323,10 @@ static void mp_seek(MPContext *mpctx, struct seek_params seek)
         mpctx->last_chapter_flag = false;
         seek.type = MPSEEK_ABSOLUTE;
     }
+
+    if (seek.type == MPSEEK_FRAMESTEP && seek.amount == -1 &&
+        step_from_cache(mpctx, -1))
+        return;
 
     bool hr_seek_very_exact = seek.exact == MPSEEK_VERY_EXACT;
     double current_time = get_playback_time(mpctx);
@@ -1264,6 +1293,27 @@ static void handle_clipboard_updates(struct MPContext *mpctx)
         mp_notify_property(mpctx, "clipboard");
 }
 
+// After stepping back through cached frames, the demuxer and decoder are still
+// where the last real seek left them. Before anything else needs them, seek to
+// the frame that is displayed.
+static void resync_after_cached_backstep(struct MPContext *mpctx)
+{
+    if (!mpctx->bs_stale || mpctx->seek.type)
+        return;
+    if (mpctx->paused && !mpctx->step_frames)
+        return;
+
+    int steps = mpctx->step_frames;
+    mp_seek(mpctx, (struct seek_params){
+        .type = MPSEEK_ABSOLUTE,
+        .amount = mpctx->bs_frames[mpctx->bs_cur]->pts,
+        .exact = MPSEEK_VERY_EXACT,
+    });
+    // The displayed frame is shown again first and must not count as a step.
+    if (steps && !mpctx->bs_stale)
+        mpctx->step_frames = steps + 1;
+}
+
 void run_playloop(struct MPContext *mpctx)
 {
     if (encode_lavc_didfail(mpctx->encode_lavc_ctx)) {
@@ -1279,6 +1329,8 @@ void run_playloop(struct MPContext *mpctx)
 
     if (mpctx->lavfi && mp_filter_has_failed(mpctx->lavfi))
         mpctx->stop_play = AT_END_OF_FILE;
+
+    resync_after_cached_backstep(mpctx);
 
     fill_audio_out_buffers(mpctx);
     write_video(mpctx);

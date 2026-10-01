@@ -201,6 +201,8 @@ typedef struct lavc_ctx {
     struct vd_lavc_params *opts;
     struct m_config_cache *hwdec_opts_cache;
     struct hwdec_opts *hwdec_opts;
+    struct m_config_cache *main_opts_cache;
+    struct MPOpts *main_opts;
     struct mp_codec_params *codec;
     AVCodecContext *avctx;
     AVFrame *pic;
@@ -505,6 +507,7 @@ static void select_and_set_hwdec(struct mp_filter *vd)
     const char *codec = ctx->codec->codec;
 
     m_config_cache_update(ctx->hwdec_opts_cache);
+    m_config_cache_update(ctx->main_opts_cache);
 
     struct hwdec_info *hwdecs = NULL;
     int num_hwdecs = 0;
@@ -954,9 +957,12 @@ static void uninit_avctx(struct mp_filter *vd)
 // on to at any given time.
 static int hwdec_get_extra_frames(vd_ffmpeg_ctx *ctx)
 {
+    // Frames retained by --backstep-cache pin surfaces too.
+    int cached = ctx->hwdec.copying ? 0 : ctx->main_opts->backstep_cache;
+
     int extra = ctx->hwdec_opts->hwdec_extra_frames;
     if (extra >= 0)
-        return extra;
+        return extra + cached;
 
     extra = HWDEC_EXTRA_FRAMES;
     // With native hwdec, every frame queued towards or retained by the VO
@@ -964,7 +970,7 @@ static int hwdec_get_extra_frames(vd_ffmpeg_ctx *ctx)
     // right after download, the fallback is enough for them.
     if (!ctx->hwdec.copying && ctx->vo)
         extra = MPMAX(extra, vo_get_num_frame_refs(ctx->vo) + HWDEC_EXTRA_INFLIGHT_FRAMES);
-    return extra;
+    return extra + cached;
 }
 
 static int init_generic_hwaccel(struct AVCodecContext *avctx, enum AVPixelFormat hw_fmt)
@@ -1505,6 +1511,8 @@ static struct mp_decoder *create(struct mp_filter *parent,
     ctx->opts = ctx->opts_cache->opts;
     ctx->hwdec_opts_cache = m_config_cache_alloc(ctx, vd->global, &hwdec_conf);
     ctx->hwdec_opts = ctx->hwdec_opts_cache->opts;
+    ctx->main_opts_cache = m_config_cache_alloc(ctx, vd->global, &mp_opt_root);
+    ctx->main_opts = ctx->main_opts_cache->opts;
     ctx->codec = codec;
     ctx->decoder = talloc_strdup(ctx, decoder);
     ctx->hwdec_swpool = mp_image_pool_new(ctx);

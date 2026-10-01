@@ -263,6 +263,7 @@ typedef struct MPOpts {
     int hr_seek;
     float hr_seek_demuxer_offset;
     bool hr_seek_framedrop;
+    int backstep_cache;
     double audio_delay;
     float default_max_pts_correction;
     int autosync;

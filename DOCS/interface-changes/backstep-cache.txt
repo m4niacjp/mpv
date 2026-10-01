@@ -1,0 +1,6 @@
+add `--backstep-cache`
+
+`frame-back-step` now keeps up to 16 recently decoded frames (`--backstep-cache`)
+and shows them on repeated back-steps instead of re-decoding from the previous
+keyframe each time. Hardware decoder surface pools grow by the same number of
+frames. Use `--backstep-cache=0` to restore the previous behavior.

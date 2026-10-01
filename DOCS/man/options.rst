@@ -419,6 +419,21 @@ Playback Control
 
     Default: ``yes``
 
+``--backstep-cache=<0-256>``
+    Number of decoded video frames to keep so that repeated ``frame-back-step``
+    commands do not have to decode again from the previous keyframe (default:
+    16). Backward stepping is an exact seek to the previous keyframe followed
+    by decoding up to the target frame, which is slow for long GOPs and
+    high-resolution video. When a backstep seek has to do that work, the last
+    decoded frames are retained, and the following back-steps display them
+    directly. Once the cache is exhausted, the next back-step seeks again and
+    refills it. Resuming playback or stepping forward first re-seeks to the
+    displayed frame. ``0`` disables the cache.
+
+    Each cached frame uses a full decoded frame of memory (with hardware
+    decoding, a GPU surface that is preallocated in the decoder's pool, see
+    ``--hwdec-extra-frames``), so this can be several hundred megabytes at 8K.
+
 ``--index=<mode>``
     Controls how to seek in files. Note that if the index is missing from a
     file, it will be built on the fly by default, so you don't need to change

@@ -62,11 +62,101 @@ static const char av_desync_help_text[] =
 "Consider trying `--profile=fast` and/or `--hwdec=auto` as they may help.\n"
 "\n";
 
+// Drop all frames retained for backstepping.
+void backstep_cache_clear(struct MPContext *mpctx)
+{
+    for (int n = 0; n < mpctx->num_bs_frames; n++)
+        mp_image_unrefp(&mpctx->bs_frames[n]);
+    mpctx->num_bs_frames = 0;
+    mpctx->bs_cur = 0;
+    mpctx->bs_inject = 0;
+    mpctx->bs_stale = false;
+}
+
+static void backstep_cache_add(struct MPContext *mpctx, struct mp_image *img)
+{
+    int max = mpctx->opts->backstep_cache;
+    if (max <= 0)
+        return;
+    if (mpctx->num_bs_frames >= max) {
+        mp_image_unrefp(&mpctx->bs_frames[0]);
+        MP_TARRAY_REMOVE_AT(mpctx->bs_frames, mpctx->num_bs_frames, 0);
+    }
+    MP_TARRAY_APPEND(mpctx, mpctx->bs_frames, mpctx->num_bs_frames,
+                     mp_image_new_ref(img));
+}
+
+// Try to step by one frame by showing a cached frame (dir is -1 or 1). Return
+// false if not possible, in which case nothing was changed. Going forward is
+// only done if a backward step already left the decoder behind; otherwise it
+// is just as fast to decode.
+bool backstep_cache_step(struct MPContext *mpctx, int dir)
+{
+    struct vo *vo = mpctx->video_out;
+    int idx = mpctx->bs_cur + dir;
+    if (!mpctx->vo_chain || !vo || !vo->params || mpctx->play_dir < 0 ||
+        mpctx->video_status < STATUS_READY || mpctx->hrseek_active ||
+        mpctx->bs_cur < 0 || mpctx->bs_cur >= mpctx->num_bs_frames ||
+        idx < 0 || idx >= mpctx->num_bs_frames ||
+        (dir > 0 && !(mpctx->bs_stale && mpctx->paused)))
+        return false;
+
+    struct mp_image *cur = mpctx->bs_frames[mpctx->bs_cur];
+    struct mp_image *next = mpctx->bs_frames[idx];
+    if (cur->pts != mpctx->video_pts || (next->pts - cur->pts) * dir <= 0 ||
+        !mp_image_params_static_equal(&next->params, vo->params))
+        return false;
+
+    // reset_playback_state() clears the cache; keep it.
+    struct mp_image **frames = mpctx->bs_frames;
+    int num = mpctx->num_bs_frames;
+    mpctx->bs_frames = NULL;
+    mpctx->num_bs_frames = 0;
+
+    reset_playback_state(mpctx);
+
+    mpctx->bs_frames = frames;
+    mpctx->num_bs_frames = num;
+    mpctx->bs_cur = idx;
+    mpctx->bs_inject = idx;
+    mpctx->bs_stale = true;
+    mpctx->last_seek_pts = next->pts;
+    return true;
+}
+
+// Called for each frame that is about to be shown. While the cache is valid,
+// keep it in sync with frame-steps that are decoded normally.
+static void backstep_cache_track(struct MPContext *mpctx, struct mp_image *f)
+{
+    if (!mpctx->num_bs_frames || mpctx->bs_stale)
+        return;
+
+    struct mp_image *cur = mpctx->bs_frames[mpctx->bs_cur];
+    if (f->pts == cur->pts)
+        return;
+
+    if (mpctx->step_frames > 0 && f->pts > cur->pts) {
+        int n = mpctx->bs_cur + 1;
+        if (n < mpctx->num_bs_frames && mpctx->bs_frames[n]->pts == f->pts) {
+            mpctx->bs_cur = n;
+            return;
+        }
+        if (n == mpctx->num_bs_frames) {
+            backstep_cache_add(mpctx, f);
+            mpctx->bs_cur = mpctx->num_bs_frames - 1;
+            return;
+        }
+    }
+    backstep_cache_clear(mpctx);
+}
+
 static bool recreate_video_filters(struct MPContext *mpctx)
 {
     struct MPOpts *opts = mpctx->opts;
     struct vo_chain *vo_c = mpctx->vo_chain;
     mp_assert(vo_c);
+
+    backstep_cache_clear(mpctx);
 
     return mp_output_chain_update_filters(vo_c->filter, opts->vf_settings);
 }
@@ -108,6 +198,7 @@ void reset_video_state(struct MPContext *mpctx)
         mp_image_unrefp(&mpctx->next_frames[n]);
     mpctx->num_next_frames = 0;
     mp_image_unrefp(&mpctx->saved_frame);
+    backstep_cache_clear(mpctx);
 
     mpctx->delay = 0;
     mpctx->time_frame = 0;
@@ -493,6 +584,17 @@ static int video_output_image(struct MPContext *mpctx, bool *logical_eof)
         hrseek = false;
     }
 
+    if (mpctx->bs_stale) {
+        // Showing cached frames; the decoder is not positioned for more.
+        while (needs_new_frame(mpctx) && mpctx->bs_inject < mpctx->num_bs_frames) {
+            struct mp_image *c = mpctx->bs_frames[mpctx->bs_inject++];
+            add_new_frame(mpctx, mp_image_new_ref(c));
+        }
+        *logical_eof = false;
+        bool all = mpctx->bs_inject >= mpctx->num_bs_frames;
+        return have_new_frame(mpctx, all) ? VD_NEW_FRAME : VD_WAIT;
+    }
+
     if (have_new_frame(mpctx, false))
         return VD_NEW_FRAME;
 
@@ -529,13 +631,20 @@ static int video_output_image(struct MPContext *mpctx, bool *logical_eof)
             {
                 /* just skip - but save in case it was the last frame */
                 mp_image_setrefp(&mpctx->saved_frame, img);
+                if (hrseek && mpctx->hrseek_backstep)
+                    backstep_cache_add(mpctx, img);
             } else {
                 if (hrseek && mpctx->hrseek_backstep) {
                     if (mpctx->saved_frame) {
+                        // The cache ends with the target (saved_frame); the
+                        // frame after it is kept as lookahead.
+                        backstep_cache_add(mpctx, img);
+                        mpctx->bs_cur = MPMAX(mpctx->num_bs_frames - 2, 0);
                         add_new_frame(mpctx, mpctx->saved_frame);
                         mpctx->saved_frame = NULL;
                     } else {
                         MP_WARN(mpctx, "Backstep failed.\n");
+                        backstep_cache_clear(mpctx);
                     }
                     mpctx->hrseek_backstep = false;
                 }
@@ -1246,6 +1355,8 @@ void write_video(struct MPContext *mpctx)
         diff /= mpctx->video_speed;
         frame->duration = MP_TIME_S_TO_NS(MPCLAMP(diff, 0, 10));
     }
+
+    backstep_cache_track(mpctx, mpctx->next_frames[0]);
 
     mpctx->video_pts = mpctx->next_frames[0]->pts;
     mpctx->last_frame_duration =

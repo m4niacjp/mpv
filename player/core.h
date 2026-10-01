@@ -341,6 +341,15 @@ typedef struct MPContext {
     struct mp_image *next_frames[VO_MAX_REQ_FRAMES + 1];
     int num_next_frames;
     struct mp_image *saved_frame;   // for hrseek_lastframe and hrseek_backstep
+    // Frames kept by backstep seeks (see --backstep-cache), ascending pts.
+    // bs_frames[bs_cur] is the displayed frame. If bs_stale is set, the
+    // display was changed from this cache only and the demuxer/decoder are
+    // not positioned at it; a real seek is needed before playback continues.
+    struct mp_image **bs_frames;
+    int num_bs_frames;
+    int bs_cur;
+    int bs_inject;                  // next entry to queue while bs_stale
+    bool bs_stale;
 
     enum playback_status video_status, audio_status;
     bool restart_complete;
@@ -672,6 +681,8 @@ bool update_subtitles(struct MPContext *mpctx, double video_pts);
 
 // video.c
 void reset_video_state(struct MPContext *mpctx);
+void backstep_cache_clear(struct MPContext *mpctx);
+bool backstep_cache_step(struct MPContext *mpctx, int dir);
 int init_video_decoder(struct MPContext *mpctx, struct track *track);
 void reinit_video_chain(struct MPContext *mpctx);
 void reinit_video_chain_src(struct MPContext *mpctx, struct track *track);
