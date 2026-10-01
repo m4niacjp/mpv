@@ -78,7 +78,12 @@ new `dist\mpv.exe` logs neither and prefetches only after the file start
   63.1.101`. Verified after deploy: live `mpv.conf` parses (no `backstep-cache`
   error), `--bluray-device`/`--curl-enabled`/`--vulkan-device`/`--vaapi-device`
   are back, `d3d11vpp` present, null-output playback of an h264/aac clip runs to
-  `End of file`.
+  `End of file`. `meson test -C build --print-errorlogs` (with `PWD` unset) is
+  **37 OK / 1 FAIL**: only `libmpv - mpv:libmpv-lifetime` fails, on the
+  pre-existing `ggml.cpp:22` assert. That tree defines 38 tests, not 230: with
+  `--wrap-mode=nofallback` there are no ffmpeg/libuv subproject suites, so the
+  documented CRLF `img-format`/`scale-sws` and `libuv` timeout caveats do not
+  apply to it.
 - `dist\mpv.exe` refreshed to
   `7C30234D1D33419B111975302279D9489E5D150A18FA7D1F3C792363A0A7889F`
   (`v0.41.0-948-g2b0f9f46c-dirty`, built 2026-09-12 06:09:49); the previously
