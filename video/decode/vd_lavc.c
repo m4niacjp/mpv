@@ -223,6 +223,7 @@ typedef struct lavc_ctx {
 
     bool intra_only;
     int framedrop_flags;
+    int extra_hw_frames_hint; // VDCTRL_SET_EXTRA_HW_FRAMES
 
     bool hw_probing;
     struct demux_packet **sent_packets;
@@ -957,12 +958,16 @@ static void uninit_avctx(struct mp_filter *vd)
 // on to at any given time.
 static int hwdec_get_extra_frames(vd_ffmpeg_ctx *ctx)
 {
+    // Structural surface requirement of the player (e.g. the enhancement-layer
+    // pairing queue); applies on top of any user override.
+    int hint = ctx->extra_hw_frames_hint;
+
     // Frames retained by --backstep-cache pin surfaces too.
     int cached = ctx->hwdec.copying ? 0 : ctx->main_opts->backstep_cache;
 
     int extra = ctx->hwdec_opts->hwdec_extra_frames;
     if (extra >= 0)
-        return extra + cached;
+        return extra + hint + cached;
 
     extra = HWDEC_EXTRA_FRAMES;
     // With native hwdec, every frame queued towards or retained by the VO
@@ -970,7 +975,7 @@ static int hwdec_get_extra_frames(vd_ffmpeg_ctx *ctx)
     // right after download, the fallback is enough for them.
     if (!ctx->hwdec.copying && ctx->vo)
         extra = MPMAX(extra, vo_get_num_frame_refs(ctx->vo) + HWDEC_EXTRA_INFLIGHT_FRAMES);
-    return extra + cached;
+    return extra + hint + cached;
 }
 
 static int init_generic_hwaccel(struct AVCodecContext *avctx, enum AVPixelFormat hw_fmt)
@@ -1427,6 +1432,9 @@ static int control(struct mp_filter *vd, enum dec_ctrl cmd, void *arg)
     switch (cmd) {
     case VDCTRL_SET_FRAMEDROP:
         ctx->framedrop_flags = *(int *)arg;
+        return CONTROL_TRUE;
+    case VDCTRL_SET_EXTRA_HW_FRAMES:
+        ctx->extra_hw_frames_hint = *(int *)arg;
         return CONTROL_TRUE;
     case VDCTRL_CHECK_FORCED_EOF: {
         *(bool *)arg = ctx->force_eof;
