@@ -52,12 +52,15 @@ Visual Studio x64 environment, build only the player targets and refresh the
 packaged binaries used by this checkout:
 
 ```powershell
-& $env:ComSpec /d /s /c '"C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat" && set "PATH=C:\Users\andre\AppData\Local\Python\pythoncore-3.14-64\Scripts;C:\Users\andre\AppData\Local\bin\NASM;C:\Program Files\Git\usr\bin;%PATH%" && set "RC=C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\Llvm\x64\bin\llvm-rc.exe" && ninja -C build mpv.exe mpv.com'
+& $env:ComSpec /d /s /c '"C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat" && set "PATH=C:\Users\andre\AppData\Roaming\Python\Python314\Scripts;C:\Users\andre\AppData\Local\bin\NASM;C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\Llvm\x64\bin;C:\Program Files\Git\usr\bin;%PATH%" && set "RC=C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\Llvm\x64\bin\llvm-rc.exe" && ninja -C build mpv.exe mpv.com'
 Copy-Item -LiteralPath build\mpv.exe -Destination dist\mpv.exe -Force
 & .\dist\mpv.exe --no-config --version
 ```
 
-`RC` must point at `llvm-rc.exe`. Meson 1.12.1 sees clang linked with `link.exe`
+The PATH entries supply `meson` (user-site Scripts, used when ninja
+regenerates), `ninja` (Visual Studio's CMake bundle) and `clang` (Visual
+Studio's LLVM); `vcvars64.bat` provides none of them. `RC` must point at
+`llvm-rc.exe`. Meson 1.12.1 sees clang linked with `link.exe`
 and therefore picks the Windows SDK `rc.exe` for `osdep/mpv.rc`, which rejects
 the `--codepage=65001` that `meson.build` passes (`fatal error RC1106`);
 `llvm-rc` accepts it. Without the pin the resource step fails and nothing
