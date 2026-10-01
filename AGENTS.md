@@ -52,21 +52,28 @@ Visual Studio x64 environment, build only the player targets and refresh the
 packaged binaries used by this checkout:
 
 ```powershell
-& $env:ComSpec /d /s /c '"C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat" && set "PATH=C:\Users\andre\AppData\Local\Python\pythoncore-3.14-64\Scripts;C:\Users\andre\AppData\Local\bin\NASM;C:\Program Files\Git\usr\bin;%PATH%" && ninja -C build mpv.exe mpv.com'
+& $env:ComSpec /d /s /c '"C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat" && set "PATH=C:\Users\andre\AppData\Local\Python\pythoncore-3.14-64\Scripts;C:\Users\andre\AppData\Local\bin\NASM;C:\Program Files\Git\usr\bin;%PATH%" && set "RC=C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\Llvm\x64\bin\llvm-rc.exe" && ninja -C build mpv.exe mpv.com'
 Copy-Item -LiteralPath build\mpv.exe -Destination dist\mpv.exe -Force
-Copy-Item -LiteralPath build\mpv.com -Destination dist\mpv.com -Force
-& .\build\mpv.com --no-config --version
+& .\dist\mpv.exe --no-config --version
 ```
+
+`RC` must point at `llvm-rc.exe`. Meson 1.12.1 sees clang linked with `link.exe`
+and therefore picks the Windows SDK `rc.exe` for `osdep/mpv.rc`, which rejects
+the `--codepage=65001` that `meson.build` passes (`fatal error RC1106`);
+`llvm-rc` accepts it. Without the pin the resource step fails and nothing
+relinks. `dist\` intentionally has no `mpv.com` (the console stub sits there as
+`mpv.bat.com`), so a bare `mpv` resolves to the GUI binary; refresh only
+`mpv.exe` and read redirected output instead of relying on a console wrapper.
 
 The explicit targets avoid unrelated optional tools in the default build. See
 [DOCS/compile-windows.md](DOCS/compile-windows.md) for supported Windows build
 setups. Player behavior that affects the local runtime should finish with this
 targeted build and `dist\` refresh.
 
-`dist\` can be partially refreshed, so `Test-Path dist\mpv.exe,dist\mpv.com`
-before relying on either. Use `mpv.com` for visible console output; with only
-the GUI-subsystem `mpv.exe` present, redirect stdout/stderr and read the exit
-code instead.
+`dist\` can be partially refreshed, so `Test-Path dist\mpv.exe` before relying
+on it. The deployed `mpv.exe` is GUI-subsystem: redirect stdout/stderr and read
+the exit code (or run the freshly built `build\mpv.com`) for visible console
+output.
 
 ## Subsystem map
 

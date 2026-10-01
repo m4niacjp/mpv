@@ -33,10 +33,36 @@ new `dist\mpv.exe` logs neither and prefetches only after the file start
 
 ## Environment notes (avoid re-discovery)
 
-- This checkout's `build/` is MSYS2 UCRT64 GCC 16.2
+- ~~This checkout's `build/` is MSYS2 UCRT64 GCC 16.2
   (`C:\msys64\ucrt64\bin`), not MSVC; ninja targets are path-prefixed
-  (`test/libmpv-test-prefetch.exe`). The AGENTS.md VS/vcvars command does not
-  match this build tree (`cc` is not on that PATH).
+  (`test/libmpv-test-prefetch.exe`).~~ Superseded 2026-10-02 — see below.
+- **2026-10-02: MSYS2 is gone.** `C:\msys64` does not exist on any drive
+  (`cmd /c dir` and `where pacman`/`where gcc` are negative), so the UCRT64 GCC
+  16.2 tree that built `dist\mpv.exe` cannot be reproduced without reinstalling
+  MSYS2 and its `ucrt64` dev packages. The live `build/` tree is clang 22.1.3
+  from VS 18 Community LLVM plus the tracked `subprojects/` wraps (FFmpeg
+  `meson-8.1`, libplacebo 7.374, luajit, shaderc, d3d11); the exact option list
+  is the `CONFIGURATION` string in `build/config.h`.
+- The clang tree needs `RC` pinned to
+  `...\VC\Tools\Llvm\x64\bin\llvm-rc.exe` (documented in AGENTS.md). Meson
+  1.12.1 pairs clang with `link.exe`, so it selects the Windows SDK `rc.exe`
+  for `osdep/mpv.rc`, which rejects the `--codepage=65001` that `meson.build`
+  passes; the resource step then fails with `fatal error RC1106` and nothing
+  relinks, even when every object is already built.
+- `dist\mpv.exe` refreshed 2026-10-02 to the clang build
+  (`2A7B822D05CF58452E182A9AD8AFF4363C052E551FBD94D5FEA633284918C612`,
+  `v0.41.0-1122-gf923fc56f`, which supports `backstep-cache` and satisfies the
+  live `mpv.conf`). The MSYS2 binary (`7C30234D…`, FFmpeg 9.0.1) is kept at
+  `dist\mpv_msys2_20260912.exe`; `dist\mpv_bck.exe` (`58702733…`) is untouched.
+  The clang binary is static, so `dist\`'s 121 DLLs are unused by it. Feature
+  delta vs the MSYS2 build: no libbluray, libcurl, libcaca, libva/libvpl,
+  vulkan, subrandr, and FFmpeg 8.1 instead of 9.0.1 — none of which the live
+  config or Roaming scripts reference (`vo=gpu-next`, `gpu-api=d3d11`,
+  `hwdec=d3d11va`, no `bd://`/vulkan/curl options).
+- `dist\mpv.exe` refreshed to
+  `7C30234D1D33419B111975302279D9489E5D150A18FA7D1F3C792363A0A7889F`
+  (`v0.41.0-948-g2b0f9f46c-dirty`, built 2026-09-12 06:09:49); the previously
+  validated benchmark binary `58702733…` is kept at `dist\mpv_bck.exe`.
 - Do not let `meson test` inherit `PWD` from an MSYS2 bash: `mp_getcwd()`
   (`misc/path_utils.c:170`) trusts `$PWD`, so tests that create relative paths
   fail with source-root-relative opens (`test_autocreate_playlist` then logs
