@@ -14,20 +14,44 @@ test such as `meson test -C build json`, and smoke-test with
 on this Windows checkout so console output is visible).
 
 For this checkout's Windows runtime, use the targeted build and `dist/`
-deployment command in [AGENTS.md](../AGENTS.md#this-windows-checkout-targeted-build-and-deployment).
-It builds `mpv.exe` and `mpv.com` only, then refreshes the packaged binaries.
-Do not treat that machine-specific command as the general upstream build path.
+deployment procedure in [AGENTS.md](../AGENTS.md#this-windows-checkout-targeted-build-and-deployment).
+It refreshes the packaged binaries in `dist/`, which is on `PATH` (so `mpv`
+resolves to `dist\mpv.exe`). Do not treat those machine-specific commands as the
+general upstream build path.
 
-This checkout keeps two Meson trees. `build/` is the normal `-Dtests=true`
-tree. `build-static/` additionally links statically (for a self-contained
-`libmpv`); recreate it with:
+`build/` is a single Meson tree that can be either toolchain:
 
-```powershell
-meson setup build-static -Dtests=true -Ddefault_library=static -Dprefer_static=true -Dc_link_args=-static -Dcpp_link_args=-static
-```
+- **MSYS2 UCRT64 (`C:\msys64\ucrt64`, GCC + pacman dependencies).** This is the
+  configuration `dist\mpv.exe` shipped with: FFmpeg 9.0.1 and the
+  libbluray/libcurl/libcaca/libva/vulkan/zimg features. Configure with
+  `meson setup build -Dtests=true --wrap-mode=nofallback`.
+- **Visual Studio clang 22.1.3 + the tracked `subprojects/` wraps** (FFmpeg
+  `meson-8.1`, libplacebo, luajit, shaderc, d3d11), for when MSYS2 is absent.
+  It needs `RC=...\VC\Tools\Llvm\x64\bin\llvm-rc.exe`, and it drops libbluray,
+  libcurl, libcaca, libva, vulkan and subrandr relative to the UCRT64 build.
 
-Both are untracked build output, so either can be deleted and recreated; the
-`build-static` configure line above is the only record of it.
+Both are untracked build output, so the tree can be deleted and recreated; the
+configure line is the only record. A separate `build-static/` static-libmpv tree
+is not present.
+
+### MSYS2 environment notes (2026-10-02)
+
+`C:\msys64` was absent, so UCRT64 was reinstalled and the dependency set
+listed for the UCRT64 path in AGENTS.md installed. Two local quirks matter:
+
+- The stock mirrorlists put `https://mirror.msys2.org` first, which
+  302-redirects to `mirror2.archlinux.tw` and stalls from this host.
+  `repo.msys2.org` is now first, with `repo.extreme-ix.org` and
+  `mirror.internet.asn.au` next; `download.nus.edu.sg` does not resolve here at
+  all (`Resolving timed out`). Per-connection throughput to these mirrors is
+  ~100-200 KB/s through the current exit, while the same tunnel reaches
+  Cloudflare at ~20 MB/s, so mirror choice is worth ~2x and the rest is peering.
+- `/etc/pacman.conf` sets a curl `XferCommand` with `--retry 5
+  --retry-connrefused --connect-timeout 20 --speed-time 60 --speed-limit 2048`
+  because pacman's built-in downloader gave up on this link. Do not add `-C -`
+  (resume): a stale `msys.db.part` from an interrupted run produced
+  `msys: signature ... is invalid` on every later sync until the partials were
+  deleted.
 
 ## Repository identity and remotes
 

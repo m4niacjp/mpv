@@ -47,9 +47,27 @@ meson test -C build json
 
 ### This Windows checkout: targeted build and deployment
 
-This is local runtime guidance, not the portable upstream build path. From a
-Visual Studio x64 environment, build only the player targets and refresh the
-packaged binaries used by this checkout:
+This is local runtime guidance, not the portable upstream build path. Two
+toolchains are available; pick by whether the feature set of `dist\` matters.
+
+**MSYS2 UCRT64 (produces the deployed feature set).** `dist\mpv.exe` was built
+from `C:\msys64\ucrt64` (GCC, FFmpeg 9.0.1, libbluray/libcurl/libcaca/
+libva/vulkan/zimg). With MSYS2 installed, configure the same way and compile:
+
+```bash
+MSYSTEM=UCRT64 CHERE_INVOKING=1 /c/msys64/usr/bin/bash.exe -lc '
+  cd /c/Users/andre/Projects/mpv &&
+  meson setup build -Dtests=true --wrap-mode=nofallback &&
+  meson compile -C build'
+```
+
+`--wrap-mode=nofallback` keeps the build on the pacman packages instead of the
+tracked `subprojects/` wraps. `dist\` needs the `mpv.exe` runtime dependencies
+copied beside it (`ldd build/mpv.exe` for the list).
+
+**Visual Studio clang + `subprojects/` wraps (fallback when MSYS2 is absent).**
+From a Visual Studio x64 environment, build only the player targets and refresh
+the packaged binaries used by this checkout:
 
 ```powershell
 & $env:ComSpec /d /s /c '"C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat" && set "PATH=C:\Users\andre\AppData\Roaming\Python\Python314\Scripts;C:\Users\andre\AppData\Local\bin\NASM;C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\Llvm\x64\bin;C:\Program Files\Git\usr\bin;%PATH%" && set "RC=C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\Llvm\x64\bin\llvm-rc.exe" && ninja -C build mpv.exe mpv.com'

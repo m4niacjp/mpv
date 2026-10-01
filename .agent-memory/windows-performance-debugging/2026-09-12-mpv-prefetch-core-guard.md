@@ -36,13 +36,17 @@ new `dist\mpv.exe` logs neither and prefetches only after the file start
 - ~~This checkout's `build/` is MSYS2 UCRT64 GCC 16.2
   (`C:\msys64\ucrt64\bin`), not MSVC; ninja targets are path-prefixed
   (`test/libmpv-test-prefetch.exe`).~~ Superseded 2026-10-02 — see below.
-- **2026-10-02: MSYS2 is gone.** `C:\msys64` does not exist on any drive
-  (`cmd /c dir` and `where pacman`/`where gcc` are negative), so the UCRT64 GCC
-  16.2 tree that built `dist\mpv.exe` cannot be reproduced without reinstalling
-  MSYS2 and its `ucrt64` dev packages. The live `build/` tree is clang 22.1.3
-  from VS 18 Community LLVM plus the tracked `subprojects/` wraps (FFmpeg
-  `meson-8.1`, libplacebo 7.374, luajit, shaderc, d3d11); the exact option list
-  is the `CONFIGURATION` string in `build/config.h`.
+- **2026-10-02: MSYS2 was gone, then reinstalled.** `C:\msys64` did not exist on
+  any drive, so the UCRT64 tree that built `dist\mpv.exe` was unreproducible; it
+  was reinstalled the same day (unattended Inno CLI:
+  `msys2-x86_64-latest.exe in --confirm-command --accept-licenses
+  --accept-messages --root C:/msys64`; `--accept-messages` and
+  `--default-answer` are mutually exclusive) and now sits at `C:\msys64`. The
+  clang 22.1.3 (VS 18 LLVM) + tracked `subprojects/` wraps tree (FFmpeg
+  `meson-8.1`, libplacebo, luajit, shaderc, d3d11) remains the fallback when
+  MSYS2 is absent; its exact option list is the `CONFIGURATION` string in
+  `build/config.h`. See `DOCS/local-workflow.md` for the pacman mirror and
+  `XferCommand` quirks found while installing the UCRT64 dependency set.
 - The clang tree needs `RC` pinned to
   `...\VC\Tools\Llvm\x64\bin\llvm-rc.exe` (documented in AGENTS.md). Meson
   1.12.1 pairs clang with `link.exe`, so it selects the Windows SDK `rc.exe`
