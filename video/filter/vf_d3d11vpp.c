@@ -534,22 +534,10 @@ static struct mp_image *render(struct mp_filter *vf)
     UINT num_past = 0;
     UINT num_future = 0;
 
-    out = alloc_out(vf);
-    if (!out) {
-        MP_WARN(vf, "failed to allocate frame\n");
-        goto cleanup;
-    }
-
-    ID3D11Texture2D *d3d_out_tex = (void *)out->planes[0];
-
     in = mp_refqueue_get(p->queue, 0);
     if (!in)
         goto cleanup;
     ID3D11Texture2D *d3d_tex = (void *)in->planes[0];
-
-    mp_image_copy_attributes(out, in);
-    // TODO: sanitize out_params based the processing enabled.
-    out->params = p->out_params;
 
     D3D11_VIDEO_FRAME_FORMAT d3d_frame_format;
     if (!mp_refqueue_should_deint(p->queue)) {
@@ -572,6 +560,18 @@ static struct mp_image *render(struct mp_filter *vf)
         if (recreate_video_proc(vf) < 0)
             goto cleanup;
     }
+
+    // Processor creation can change the output format and colorspace for
+    // NVIDIA HDR. Allocate and tag even the first frame with the final params.
+    out = alloc_out(vf);
+    if (!out) {
+        MP_WARN(vf, "failed to allocate frame\n");
+        goto cleanup;
+    }
+
+    ID3D11Texture2D *d3d_out_tex = (void *)out->planes[0];
+    mp_image_copy_attributes(out, in);
+    out->params = p->out_params;
 
     ID3D11VideoContext_VideoProcessorSetStreamFrameFormat(p->video_ctx,
                                                           p->video_proc,
@@ -655,10 +655,14 @@ static void vf_d3d11vpp_process(struct mp_filter *vf)
         p->out_params.w += p->out_params.w % 2 != 0;
         p->out_params.h = (int)(p->opts->scale * p->params.h);
         p->out_params.h += p->out_params.h % 2 != 0;
-        p->out_params.crop.x0 = lrintf(p->opts->scale * p->out_params.crop.x0);
-        p->out_params.crop.x1 = lrintf(p->opts->scale * p->out_params.crop.x1);
-        p->out_params.crop.y0 = lrintf(p->opts->scale * p->out_params.crop.y0);
-        p->out_params.crop.y1 = lrintf(p->opts->scale * p->out_params.crop.y1);
+        // The output dimensions are truncated and aligned to even pixels.
+        // Scale the crop to those dimensions too, so its edges stay in bounds.
+        double scale_x = (double)p->out_params.w / p->params.w;
+        double scale_y = (double)p->out_params.h / p->params.h;
+        p->out_params.crop.x0 = lrint(scale_x * p->params.crop.x0);
+        p->out_params.crop.x1 = lrint(scale_x * p->params.crop.x1);
+        p->out_params.crop.y0 = lrint(scale_y * p->params.crop.y0);
+        p->out_params.crop.y1 = lrint(scale_y * p->params.crop.y1);
 
         if (p->opts->format)
             p->out_params.hw_subfmt = p->opts->format;

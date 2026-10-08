@@ -734,6 +734,8 @@ Available mpv-only filters are:
         Whether deinterlacing is enabled (default: no).
     ``scale``
         Scaling factor for the video frames (default: 1.0).
+        Output dimensions are truncated to integers, then rounded up to even
+        sizes. Crop coordinates are scaled to these final dimensions.
     ``scaling-mode=<standard,intel,nvidia>``
         Select the scaling mode to be used. Note that this only enables the
         appropriate processing extensions; whether it actually works or not
