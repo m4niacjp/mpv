@@ -29,6 +29,9 @@
 #include <libplacebo/utils/frame_queue.h>
 
 #include "config.h"
+#ifdef _WIN32
+#include <windows.h>
+#endif
 #include "common/common.h"
 #include "common/stats.h"
 #include "misc/io_utils.h"
@@ -50,6 +53,8 @@
 #include "gpu/video_shaders.h"
 #include "sub/osd.h"
 #include "gpu_next/context.h"
+#include "gpu_next/warmup.h"
+#include "video/out/aspect.h"
 
 #if HAVE_GL && defined(PL_HAVE_OPENGL)
 #include <libplacebo/opengl.h>
@@ -103,6 +108,7 @@ struct cache {
     const char *name;
     size_t size_limit;
     pl_cache cache;
+    bool trace_warmup;
 };
 
 // Mapping state of single hwdec frame.
@@ -178,10 +184,22 @@ struct priv {
     struct frame_info perf_redraw;
 
     struct mp_image_params target_params;
+    struct render_warmup *warmup;
+    struct render_warmup_request *warmup_request;
+    struct render_warmup_target warmup_target;
 };
 
 static void update_render_options(struct vo *vo);
 static void update_lut(struct priv *p, struct user_lut *lut);
+static int prepare_render_options(struct priv *p);
+static void submit_pending_warmup(struct vo *vo);
+
+static void cancel_warmup(struct priv *p)
+{
+    TA_FREEP(&p->warmup_request);
+    if (p->warmup)
+        render_warmup_submit(p->warmup, NULL);
+}
 
 struct gl_next_opts {
     bool delayed_peak;
@@ -976,6 +994,28 @@ static bool upload_planes_sw(struct vo *vo, pl_gpu gpu, struct mp_image *mpi,
     return true;
 }
 
+static void setup_frame_metadata(struct priv *p, struct mp_image *mpi,
+                                  struct mp_image_params *par,
+                                  struct pl_frame *frame, float ref_luma)
+{
+    mp_image_params_guess_csp(par);
+    *frame = (struct pl_frame) {
+        .color = par->color,
+        .repr = par->repr,
+        .profile = {
+            .data = mpi->icc_profile ? mpi->icc_profile->data : NULL,
+            .len = mpi->icc_profile ? mpi->icc_profile->size : 0,
+        },
+        .rotation = par->rotate / 90,
+        .user_data = mpi,
+    };
+    const struct gl_video_opts *opts = p->opts_cache->opts;
+    if (!pl_color_transfer_is_hdr(frame->color.transfer) && ref_luma)
+        frame->color.hdr.max_luma = ref_luma;
+    if (opts->treat_srgb_as_power22 & 1 && frame->color.transfer == PL_COLOR_TRC_SRGB)
+        frame->color.transfer = PL_COLOR_TRC_GAMMA22;
+}
+
 static bool map_frame(pl_gpu gpu, pl_tex *tex, const struct pl_source_frame *src,
                       struct pl_frame *frame)
 {
@@ -999,29 +1039,7 @@ static bool map_frame(pl_gpu gpu, pl_tex *tex, const struct pl_source_frame *src
         par = p->hwdec.mapper->dst_params;
     }
 
-    mp_image_params_guess_csp(&par);
-
-    *frame = (struct pl_frame) {
-        .color = par.color,
-        .repr = par.repr,
-        .profile = {
-            .data = mpi->icc_profile ? mpi->icc_profile->data : NULL,
-            .len = mpi->icc_profile ? mpi->icc_profile->size : 0,
-        },
-        .rotation = par.rotate / 90,
-        .user_data = mpi,
-    };
-
-    const struct gl_video_opts *opts = p->opts_cache->opts;
-    float ref_luma;
-    if (!pl_color_transfer_is_hdr(frame->color.transfer) && (ref_luma = get_ref_luma(p)))
-        frame->color.hdr.max_luma = ref_luma;
-
-    if (opts->treat_srgb_as_power22 & 1 && frame->color.transfer == PL_COLOR_TRC_SRGB) {
-        // The sRGB EOTF is a pure gamma 2.2 function. See reference display in
-        // IEC 61966-2-1-1999. Linearize sRGB to display light.
-        frame->color.transfer = PL_COLOR_TRC_GAMMA22;
-    }
+    setup_frame_metadata(p, mpi, &par, frame, get_ref_luma(p));
 
     if (fp->hwdec) {
         p->sw_upload_perf.count = 0;
@@ -1154,15 +1172,9 @@ static void info_callback(void *priv, const struct pl_render_info *info)
     pl_dispatch_info_move(&frame->info[info->index], info->pass);
 }
 
-static void update_options(struct vo *vo)
+static void update_dynamic_render_options(struct priv *p)
 {
-    struct priv *p = vo->priv;
     pl_options pars = p->pars;
-    bool changed = m_config_cache_update(p->opts_cache);
-    changed = m_config_cache_update(p->next_opts_cache) || changed;
-    if (changed)
-        update_render_options(vo);
-
     update_lut(p, &p->next_opts->lut);
     pars->params.lut = p->next_opts->lut.lut;
     pars->params.lut_type = p->next_opts->lut.type;
@@ -1180,6 +1192,16 @@ static void update_options(struct vo *vo)
 
     for (char **kv = p->next_opts->raw_opts; kv && kv[0]; kv += 2)
         pl_options_set_str(pars, kv[0], kv[1]);
+}
+
+static void update_options(struct vo *vo)
+{
+    struct priv *p = vo->priv;
+    bool changed = m_config_cache_update(p->opts_cache);
+    changed = m_config_cache_update(p->next_opts_cache) || changed;
+    if (changed)
+        update_render_options(vo);
+    update_dynamic_render_options(p);
 }
 
 static void apply_target_contrast(struct priv *p, struct pl_color_space *color, float min_luma)
@@ -1756,6 +1778,27 @@ static bool draw_frame(struct vo *vo, struct vo_frame *frame)
         goto done;
     }
 
+    // Copy only plain target metadata. No GPU/renderer-owned object crosses
+    // to the private worker; its texture is created on its own device.
+    p->warmup_target = (struct render_warmup_target) {
+        .frame = {
+            .color = target.color,
+            .repr = target.repr,
+            .rotation = target.rotation,
+            .num_planes = 1,
+            .planes[0] = target.planes[0],
+        },
+        .format = swframe.fbo->params.format->name,
+        .width = swframe.fbo->params.w,
+        .height = swframe.fbo->params.h,
+        .monitor_par = vo->monitor_par,
+        .ref_luma = get_ref_luma(p),
+    };
+    p->warmup_target.frame.planes[0].texture = NULL;
+    if (target.num_planes != 1 || target.icc || target.profile.len || target.lut)
+        p->warmup_target.width = 0;
+    submit_pending_warmup(vo);
+
     struct pl_frame ref_frame;
     pl_frames_infer_mix(p->rr, &mix, &target, &ref_frame);
 
@@ -1840,6 +1883,10 @@ static void resize(struct vo *vo)
         mp_rect_equals(&p->dst, &dst) &&
         osd_res_equals(p->osd_res, osd))
         return;
+
+    if (p->warmup)
+        render_warmup_submit(p->warmup, NULL);
+    p->warmup_target.width = 0;
 
     p->osd_sync++;
     p->osd_res = osd;
@@ -2186,6 +2233,8 @@ static int control(struct vo *vo, uint32_t request, void *data)
         return VO_TRUE;
 
     case VOCTRL_UPDATE_RENDER_OPTS: {
+        cancel_warmup(p);
+        p->warmup_target.width = 0;
         update_ra_ctx_options(vo, &p->ra_ctx->opts);
         if (p->ra_ctx->fns->update_render_opts)
             p->ra_ctx->fns->update_render_opts(p->ra_ctx);
@@ -2209,8 +2258,17 @@ static int control(struct vo *vo, uint32_t request, void *data)
     }
 
     case VOCTRL_RESET:
+        cancel_warmup(p);
         // Defer until the first new frame (unique ID) actually arrives
         p->want_seek_reset = true;
+        return VO_TRUE;
+
+    case VOCTRL_RENDER_WARMUP:
+        cancel_warmup(p);
+        // Async dispatch owns its payload until this transfer. Pending data is
+        // metadata/configuration only, including before the first live draw.
+        p->warmup_request = talloc_steal(p, data);
+        submit_pending_warmup(vo);
         return VO_TRUE;
 
     case VOCTRL_PERFORMANCE_DATA: {
@@ -2301,6 +2359,13 @@ static pl_cache_obj cache_load_obj(void *p, uint64_t key)
         .size = data.len,
         .free = talloc_free,
     };
+#ifdef _WIN32
+    if (c->trace_warmup) {
+        MP_INFO(c, "render-warmup-trace: event=cache-load tid=%lu time_ns=%lld "
+                "key=%016" PRIx64 " size=%zu kind=%s\n", GetCurrentThreadId(),
+                (long long)load_end, key, data.len, c->name);
+    }
+#endif
 
 done:
     talloc_free(ta_ctx);
@@ -2311,6 +2376,13 @@ static void cache_save_obj(void *p, pl_cache_obj obj)
 {
     const struct cache *c = p;
     void *ta_ctx = talloc_new(NULL);
+#ifdef _WIN32
+    if (c->trace_warmup) {
+        MP_INFO(c, "render-warmup-trace: event=cache-save tid=%lu time_ns=%lld "
+                "key=%016" PRIx64 " size=%zu kind=%s\n", GetCurrentThreadId(),
+                (long long)mp_time_ns(), obj.key, obj.size, c->name);
+    }
+#endif
 
     if (!c->dir)
         goto done;
@@ -2365,6 +2437,7 @@ static void cache_init(struct vo *vo, struct cache *cache, size_t max_size,
         .dir        = dir,
         .name       = name,
         .size_limit = limit,
+        .trace_warmup = getenv("MPV_RENDER_WARMUP_TRACE") != NULL,
         .cache = pl_cache_create(pl_cache_params(
             .log = p->pllog,
             .get = cache_load_obj,
@@ -2458,6 +2531,10 @@ done:
 static void uninit(struct vo *vo)
 {
     struct priv *p = vo->priv;
+    TA_FREEP(&p->warmup_request);
+    // Cache callbacks, live logging/configuration and device stay alive until
+    // the private worker has drained. File navigation never performs this join.
+    render_warmup_destroy(&p->warmup);
 
     // Drain any in-flight uploads.
     if (p->gpu)
@@ -2839,9 +2916,8 @@ static void update_hook_opts(struct priv *p, char **opts, const char *shaderpath
     }
 }
 
-static void update_render_options(struct vo *vo)
+static int prepare_render_options(struct priv *p)
 {
-    struct priv *p = vo->priv;
     pl_options pars = p->pars;
     const struct gl_video_opts *opts = p->opts_cache->opts;
     pars->params.background_color[0] = opts->background_color.r / 255.0;
@@ -2886,8 +2962,6 @@ static void update_render_options(struct vo *vo)
                       (pars->params.skip_anti_aliasing ? 1 : 2);
     }
     req_frames = MPMIN(VO_MAX_REQ_FRAMES, req_frames);
-    // pl_queue also retains past frames for the symmetric mixing window,
-    vo_set_queue_params(vo, 0, req_frames, 2 * req_frames - 1);
 
     pars->params.deband_params = opts->deband ? &pars->deband_params : NULL;
     pars->deband_params.iterations = opts->deband_opts->iterations;
@@ -2988,6 +3062,240 @@ AV_NOWARN_DEPRECATED(
 
     MP_DBG(p, "Render options updated, flushing renderer cache.\n");
     p->flush_cache = p->paused || !p->next_opts->inter_preserve;
+    return req_frames;
+}
+
+static void update_render_options(struct vo *vo)
+{
+    int frames = prepare_render_options(vo->priv);
+    // pl_queue also retains past frames for the symmetric mixing window.
+    vo_set_queue_params(vo, 0, frames, 2 * frames - 1);
+}
+
+static bool warmup_options_supported(const struct gl_video_opts *opts,
+                                      const struct gl_next_opts *next)
+{
+    return !(opts->user_shaders && opts->user_shaders[0]) &&
+           !(opts->icc_opts->profile && opts->icc_opts->profile[0]) &&
+           !opts->icc_opts->profile_auto &&
+           !(next->lut.opt && next->lut.opt[0]) &&
+           !(next->image_lut.opt && next->image_lut.opt[0]) &&
+           !(next->target_lut.opt && next->target_lut.opt[0]) &&
+           !(next->raw_opts && next->raw_opts[0]);
+}
+
+static void submit_pending_warmup(struct vo *vo)
+{
+    struct priv *p = vo->priv;
+    if (!p->warmup_request)
+        return;
+#if HAVE_D3D11 && defined(PL_HAVE_D3D11)
+    pl_d3d11 d3d = pl_d3d11_get(p->gpu);
+    if (!d3d || !p->shader_cache.cache)
+        goto skip;
+    if (!p->warmup_target.width || !p->warmup_target.height)
+        return; // wait for plain target metadata from the first successful draw
+    void *scope = talloc_new(NULL);
+    struct gl_video_opts *opts = mp_get_config_group(
+        scope, p->warmup_request->global, &gl_video_conf);
+    struct gl_next_opts *next = mp_get_config_group(
+        scope, p->warmup_request->global, &gl_next_conf);
+    bool supported = warmup_options_supported(opts, next);
+    talloc_free(scope);
+    if (!supported)
+        goto skip;
+
+    struct render_warmup_request *r = p->warmup_request;
+    r->target = p->warmup_target;
+    r->target.format = talloc_strdup(r, p->warmup_target.format);
+    r->target.display_fps = vo_get_display_fps(vo);
+    int events = 0;
+    p->ra_ctx->fns->control(p->ra_ctx, &events, VOCTRL_GET_DISPLAY_RES,
+                            r->target.display_res);
+    IDXGIDevice *dxgi = NULL;
+    IDXGIAdapter *adapter = NULL;
+    DXGI_ADAPTER_DESC desc;
+    bool matches = false;
+    if (SUCCEEDED(ID3D11Device_QueryInterface(d3d->device, &IID_IDXGIDevice,
+                                               (void **)&dxgi)) &&
+        SUCCEEDED(IDXGIDevice_GetAdapter(dxgi, &adapter)) &&
+        SUCCEEDED(IDXGIAdapter_GetDesc(adapter, &desc)))
+    {
+        memcpy(&r->target.adapter_luid, &desc.AdapterLuid, sizeof(desc.AdapterLuid));
+        r->target.feature_level = ID3D11Device_GetFeatureLevel(d3d->device);
+        matches = true;
+    }
+    SAFE_RELEASE(adapter);
+    SAFE_RELEASE(dxgi);
+    if (!matches)
+        goto skip;
+    if (!p->warmup)
+        p->warmup = render_warmup_create(p->log, p->shader_cache.cache);
+    p->warmup_request = NULL;
+    render_warmup_submit(p->warmup, talloc_steal(NULL, r));
+    return;
+#endif
+skip:
+    MP_VERBOSE(p, "Skipping render warmup: unsupported device, cache or customization.\n");
+    TA_FREEP(&p->warmup_request);
+}
+
+bool gpu_next_warmup_render(struct render_warmup_request *r, pl_log log,
+                            pl_gpu gpu, struct mp_image *mpi)
+{
+#if HAVE_D3D11 && defined(PL_HAVE_D3D11)
+    if (mpi->icc_profile || mpi->enhancement_layer)
+        return false;
+    struct priv *p = talloc_zero(NULL, struct priv);
+    p->global = r->global;
+    p->log = r->global->log;
+    p->pllog = log;
+    p->gpu = gpu;
+    p->opts_cache = m_config_cache_alloc(p, r->global, &gl_video_conf);
+    p->next_opts_cache = m_config_cache_alloc(p, r->global, &gl_next_conf);
+    p->next_opts = p->next_opts_cache->opts;
+    p->video_eq = mp_csp_equalizer_create(p, r->global);
+    mp_mutex_init(&p->dr_lock);
+    struct ra_ctx ctx = {.global = r->global, .log = p->log};
+    p->ra_ctx = &ctx;
+    struct mp_hwdec_devices *devices = NULL;
+    struct ra_hwdec_mapper *mapper = NULL;
+    pl_tex planes[4] = {0}, fbo = NULL;
+    struct pl_frame image = {0};
+    struct mp_image_params par = mpi->params;
+    struct gl_video_opts *opts = p->opts_cache->opts;
+    bool rendered = false;
+    bool mapper_access = false;
+    bool texture_ra = false;
+    int imported_planes = 0;
+    const char *failure = "configuration";
+    if (!warmup_options_supported(opts, p->next_opts))
+        goto done;
+    p->pars = pl_options_alloc(log);
+    p->rr = pl_renderer_create(log, gpu);
+    if (!p->pars || !p->rr)
+        goto done;
+    prepare_render_options(p);
+    update_dynamic_render_options(p);
+
+    if (mpi->imgfmt == IMGFMT_D3D11) {
+        failure = "hardware-import";
+        pl_d3d11 d3d = pl_d3d11_get(gpu);
+        ctx.ra = ra_d3d11_create(d3d->device, p->log, NULL);
+        if (!ctx.ra)
+            goto done;
+        devices = hwdec_devices_create();
+        p->hwdec_ctx = (struct ra_hwdec_ctx) {
+            .global = r->global, .log = p->log, .ra_ctx = &ctx,
+        };
+        ra_hwdec_ctx_init(&p->hwdec_ctx, devices, "d3d11va", false);
+        struct ra_hwdec *hwdec = ra_hwdec_get(&p->hwdec_ctx, IMGFMT_D3D11);
+        if (!hwdec || !(mapper = ra_hwdec_mapper_create(hwdec, &mpi->params)) ||
+            ra_hwdec_mapper_map(mapper, mpi) < 0)
+        {
+            goto done;
+        }
+        par = mapper->dst_params;
+        if (ra_hwdec_mapper_begin_access(mapper) < 0)
+            goto done;
+        mapper_access = true;
+        setup_frame_metadata(p, mpi, &par, &image, r->target.ref_luma);
+        struct mp_imgfmt_desc desc = mp_imgfmt_get_desc(par.imgfmt);
+        setup_hwdec_plane_mapping(&image, &desc);
+        for (int n = 0; n < image.num_planes; n++) {
+            planes[n] = hwdec_get_tex(p, mapper, n);
+            if (!planes[n])
+                goto done;
+            image.planes[n].texture = planes[n];
+            imported_planes++;
+        }
+    } else {
+        failure = "software-upload";
+        setup_frame_metadata(p, mpi, &par, &image, r->target.ref_luma);
+        struct vo upload = {.priv = p, .global = r->global, .log = p->log};
+        if (!format_supported(&upload, mpi->imgfmt, false) &&
+            !format_supported(&upload, mpi->imgfmt, true))
+        {
+            goto done;
+        }
+        if (!upload_planes_sw(&upload, gpu, mpi, &image, planes))
+            goto done;
+        imported_planes = image.num_planes;
+    }
+    pl_frame_set_chroma_location(&image, par.chroma_location);
+    if (mpi->film_grain)
+        pl_film_grain_from_av(&image.film_grain, (AVFilmGrainParams *)mpi->film_grain->data);
+
+    pl_fmt fmt = pl_find_named_fmt(gpu, r->target.format);
+    failure = "target-format";
+    if (!fmt || !(fmt->caps & PL_FMT_CAP_RENDERABLE))
+        goto done;
+    failure = "target-texture";
+    fbo = pl_tex_create(gpu, pl_tex_params(
+        .w = r->target.width, .h = r->target.height, .format = fmt,
+        .renderable = true, .blit_dst = true,
+        .storable = fmt->caps & PL_FMT_CAP_STORABLE,
+    ));
+    if (!fbo)
+        goto done;
+    struct pl_frame target = r->target.frame;
+    target.planes[0].texture = fbo;
+    struct mp_vo_opts *vo_opts = mp_get_config_group(p, r->global, &vo_sub_opts);
+    struct mp_rect src, dst;
+    struct mp_osd_res osd;
+    mp_get_src_dst_rects(p->log, vo_opts, VO_CAP_ROTATE90 | VO_CAP_VFLIP,
+                          &mpi->params, r->target.width, r->target.height,
+                          r->target.monitor_par, &src, &dst, &osd);
+    apply_crop(&image, src, mpi->params.w, mpi->params.h);
+    apply_crop(&target, dst, r->target.width, r->target.height);
+    update_tm_viz(&p->pars->color_map_params, &target);
+    struct pl_render_params params = p->pars->params;
+    params.preserve_mixing_cache = p->next_opts->inter_preserve;
+    if (mpi->params.vflip) {
+        p->pars->distort_params.transform.mat = (pl_matrix2x2){.m = {{1, 0}, {0, -1}}};
+        params.distort_params = &p->pars->distort_params;
+    }
+    const struct pl_frame *frames[] = {&image};
+    uint64_t signature = 1;
+    float timestamp = 0;
+    struct pl_frame_mix mix = {
+        .num_frames = 1, .frames = frames,
+        .signatures = &signature, .timestamps = &timestamp,
+        .vsync_duration = 1.0,
+    };
+    // One source frame/target, both normal first-draw and redraw cache modes.
+    params.skip_caching_single_frame = true;
+    failure = "render";
+    rendered = pl_render_image_mix(p->rr, &mix, &target, &params);
+    if (rendered) {
+        params.skip_caching_single_frame = false;
+        rendered = pl_render_image_mix(p->rr, &mix, &target, &params);
+    }
+done:
+    texture_ra = ctx.ra != NULL;
+    if (mapper_access)
+        ra_hwdec_mapper_end_access(mapper);
+    pl_renderer_destroy(&p->rr);
+    pl_options_free(&p->pars);
+    for (int n = 0; n < MP_ARRAY_SIZE(planes); n++)
+        pl_tex_destroy(gpu, &planes[n]);
+    pl_tex_destroy(gpu, &fbo);
+    ra_hwdec_mapper_free(&mapper);
+    ra_hwdec_ctx_uninit(&p->hwdec_ctx);
+    if (devices)
+        hwdec_devices_destroy(devices);
+    // D3D11's destroy frees the RA itself, as in its normal context teardown.
+    if (ctx.ra)
+        ctx.ra->fns->destroy(ctx.ra);
+    mp_mutex_destroy(&p->dr_lock);
+    MP_INFO(p, "render-warmup-trace: event=renderer-end rendered=%d reason=%s "
+            "imported_planes=%d texture_ra=%d\n", rendered,
+            rendered ? "none" : failure, imported_planes, texture_ra);
+    talloc_free(p); // all private config listeners die before the request shadow
+    return rendered;
+#else
+    return false;
+#endif
 }
 
 const struct vo_driver video_out_gpu_next = {

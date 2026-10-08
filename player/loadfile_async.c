@@ -19,6 +19,7 @@
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "mpv_talloc.h"
@@ -29,9 +30,12 @@
 #include "demux/demux.h"
 #include "misc/path_utils.h"
 #include "misc/thread_tools.h"
+#include "options/m_config_core.h"
 #include "options/options.h"
 #include "osdep/threads.h"
 #include "osdep/timer.h"
+#include "video/out/gpu_next/warmup.h"
+#include "video/out/vo.h"
 
 #include "client.h"
 #include "command.h"
@@ -918,6 +922,101 @@ void update_prefetch_state(struct MPContext *mpctx)
     }
 }
 
+void cancel_render_prefetch(struct MPContext *mpctx)
+{
+    if (mpctx->render_prefetch_id && getenv("MPV_RENDER_WARMUP_TRACE")) {
+        MP_INFO(mpctx, "render-warmup-trace: event=eligibility-cancel time_ns=%lld "
+                "entry=%lld submitted=%d\n", (long long)mp_time_ns(),
+                (long long)mpctx->render_prefetch_id, mpctx->render_prefetch_submitted);
+    }
+    if (mpctx->render_prefetch_submitted && mpctx->video_out)
+        vo_control_async(mpctx->video_out, VOCTRL_RENDER_WARMUP, NULL);
+    mpctx->render_prefetch_id = 0;
+    mpctx->render_prefetch_deadline_ns = 0;
+    mpctx->render_prefetch_submitted = false;
+    TA_FREEP(&mpctx->render_prefetch_url);
+}
+
+static void prefetch_render(struct MPContext *mpctx)
+{
+    if (!mpctx->opts->prefetch_render || !mpctx->opts->prefetch_open ||
+        !mpctx->video_out || !mpctx->vo_chain || !mpctx->playback_initialized ||
+        mpctx->video_status < STATUS_PLAYING || mpctx->video_status >= STATUS_EOF ||
+        !mpctx->restart_complete || !mpctx->vo_chain->track ||
+        !vo_has_frame(mpctx->video_out) ||
+        mpctx->stop_play)
+    {
+        cancel_render_prefetch(mpctx);
+        return;
+    }
+    if (!mpctx->render_prefetch_options) {
+        mpctx->render_prefetch_options = m_config_cache_alloc(
+            mpctx, mpctx->global, &mp_opt_root);
+    }
+    struct m_config_cache *cache = mpctx->render_prefetch_options;
+    void *changed;
+    bool filter_changed = false;
+    while (m_config_cache_get_next_changed(cache, &changed)) {
+        struct MPOpts *cached = cache->opts;
+        filter_changed |= changed == &cached->vf_settings;
+    }
+    if (filter_changed || cache->change_flags) {
+        uint64_t relevant = UPDATE_IMGPAR | UPDATE_VIDEO | UPDATE_VO |
+                            UPDATE_DEMUXER | UPDATE_VD | UPDATE_HWDEC |
+                            UPDATE_PREFETCH | UPDATE_LAVFI_COMPLEX;
+        if (filter_changed || (cache->change_flags & relevant))
+            cancel_render_prefetch(mpctx);
+        cache->change_flags = 0;
+    }
+    struct playlist_entry *entry = mp_next_file(mpctx, +1, false, false);
+    if (!entry || !entry->filename || entry == mpctx->playing ||
+        entry->num_params || mpctx->playlist->current_was_replaced)
+    {
+        cancel_render_prefetch(mpctx);
+        return;
+    }
+    if (mpctx->render_prefetch_id != entry->id || !mpctx->render_prefetch_url ||
+        strcmp(mpctx->render_prefetch_url, entry->filename) != 0 ||
+        mpctx->render_prefetch_stream_flags != entry->stream_flags)
+    {
+        cancel_render_prefetch(mpctx);
+        mpctx->render_prefetch_id = entry->id;
+        mpctx->render_prefetch_url = talloc_strdup(mpctx, entry->filename);
+        mpctx->render_prefetch_stream_flags = entry->stream_flags;
+        int64_t now = mp_time_ns();
+        mpctx->render_prefetch_deadline_ns = now + MP_TIME_MS_TO_NS(250);
+        if (getenv("MPV_RENDER_WARMUP_TRACE")) {
+            MP_INFO(mpctx, "render-warmup-trace: event=eligibility time_ns=%lld "
+                    "source=%lld entry=%lld deadline_ns=%lld\n", (long long)now,
+                    (long long)mpctx->playing->id, (long long)entry->id,
+                    (long long)mpctx->render_prefetch_deadline_ns);
+        }
+    }
+    if (mpctx->render_prefetch_submitted)
+        return;
+    int64_t remaining = mpctx->render_prefetch_deadline_ns - mp_time_ns();
+    if (remaining > 0) {
+        // Keep ordinary packet prefetch immediate. Only private render work
+        // needs a stable current frame, rather than each rapid navigation stop.
+        mp_set_timeout(mpctx, MP_TIME_NS_TO_S(remaining));
+        return;
+    }
+    // Begin only once normal nearest-next packet prefetch has completed opening.
+    if (find_prefetched_file(mpctx, entry, entry->filename) < 0)
+        return;
+    struct render_warmup_request *r = render_warmup_request_create(
+        mpctx->global, entry->id, entry->filename, entry->stream_flags);
+    if (!r)
+        return;
+    mpctx->render_prefetch_submitted = true;
+    if (getenv("MPV_RENDER_WARMUP_TRACE")) {
+        MP_INFO(mpctx, "render-warmup-trace: event=submit time_ns=%lld source=%lld "
+                "entry=%lld\n", (long long)mp_time_ns(),
+                (long long)mpctx->playing->id, (long long)entry->id);
+    }
+    vo_control_async(mpctx->video_out, VOCTRL_RENDER_WARMUP, r);
+}
+
 void prefetch_next(struct MPContext *mpctx)
 {
     if (mpctx->prefetch_canceling)
@@ -927,6 +1026,7 @@ void prefetch_next(struct MPContext *mpctx)
     if (!mpctx->demuxer || (mpctx->open && !mpctx->open->for_prefetch))
         return;
     if (mpctx->demuxer_changed || mpctx->prefetch_changed) {
+        cancel_render_prefetch(mpctx);
         if (mpctx->demuxer_changed)
             mpctx->demuxer_reusable = false;
         mpctx->demuxer_changed = false;
@@ -937,11 +1037,13 @@ void prefetch_next(struct MPContext *mpctx)
     }
 
     if (!mpctx->opts->prefetch_open) {
+        cancel_render_prefetch(mpctx);
         cancel_open(mpctx);
         return;
     }
 
     if (mpctx->playlist->current_was_replaced) {
+        cancel_render_prefetch(mpctx);
         cancel_open(mpctx);
         return;
     }
@@ -959,6 +1061,7 @@ void prefetch_next(struct MPContext *mpctx)
     }
     update_prefetch_state(mpctx);
     drop_stale_prefetches(mpctx);
+    prefetch_render(mpctx);
     reap_demuxers(mpctx);
     if (mpctx->num_retired_demuxers >= MAX_RETIRED_DEMUXERS - 1)
         return;

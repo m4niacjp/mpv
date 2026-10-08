@@ -106,6 +106,13 @@ gl_video = executable('gl-video', 'gl_video.c', objects: gl_video_objects,
                       link_with: [img_utils, test_utils])
 test('gl-video', gl_video)
 
+# Internal lifecycle/snapshot test; reuse the already-built player objects.
+render_warmup = executable('render-warmup', 'render_warmup.c',
+                           objects: libmpv.extract_all_objects(recursive: true),
+                           dependencies: dependencies,
+                           include_directories: [incdir, incdir_public])
+test('render-warmup', render_warmup)
+
 json = executable('json', 'json.c', include_directories: [incdir, incdir_public], link_with: test_utils)
 test('json', json)
 

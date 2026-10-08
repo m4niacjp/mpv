@@ -487,6 +487,12 @@ typedef struct MPContext {
     bool demuxer_changed;
     bool prefetch_changed;
     bool demuxer_reusable; // current instance survived no demux-option changes
+    struct m_config_cache *render_prefetch_options;
+    int64_t render_prefetch_id;
+    char *render_prefetch_url;
+    int render_prefetch_stream_flags;
+    int64_t render_prefetch_deadline_ns;
+    bool render_prefetch_submitted;
 
     struct autocreate_job *autocreate;
 
@@ -578,6 +584,7 @@ void autoload_external_files(struct MPContext *mpctx, struct mp_cancel *cancel);
 struct track *select_default_track(struct MPContext *mpctx, int order,
                                    enum stream_type type);
 void prefetch_next(struct MPContext *mpctx);
+void cancel_render_prefetch(struct MPContext *mpctx);
 void update_prefetch_state(struct MPContext *mpctx);
 bool is_prefetch_active(struct MPContext *mpctx);
 bool is_entry_prefetched(struct MPContext *mpctx, struct playlist_entry *entry);

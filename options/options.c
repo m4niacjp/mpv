@@ -677,6 +677,7 @@ static const m_option_t mp_opts[] = {
     {"demuxer-termination-timeout", OPT_DOUBLE(demux_termination_timeout)},
     {"demuxer-cache-wait", OPT_BOOL(demuxer_cache_wait)},
     {"prefetch-playlist", OPT_BOOL(prefetch_open), .flags = UPDATE_PREFETCH},
+    {"prefetch-playlist-render", OPT_BOOL(prefetch_render), .flags = UPDATE_PREFETCH},
     {"prefetch-playlist-max", OPT_INT(prefetch_open_max),
         M_RANGE(1, INT_MAX), .flags = UPDATE_PREFETCH},
     {"prefetch-playlist-history", OPT_INT(prefetch_open_history),

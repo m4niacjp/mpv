@@ -17,6 +17,7 @@ const struct ra_format *ra_d3d11_get_ra_format(struct ra *ra, DXGI_FORMAT fmt);
 
 // Create an RA instance from a D3D11 device. This takes a reference to the
 // device, which is released when the RA instance is destroyed.
+// A NULL compiler supports textures/mapping only, not shader render passes.
 struct ra *ra_d3d11_create(ID3D11Device *device, struct mp_log *log,
                            struct spirv_compiler *spirv);
 

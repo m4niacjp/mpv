@@ -24,6 +24,7 @@
 #include "mpv_talloc.h"
 
 #include "common/msg.h"
+#include "common/playlist.h"
 #include "options/options.h"
 #include "options/m_config.h"
 #include "options/m_option.h"
@@ -1422,7 +1423,14 @@ void write_video(struct MPContext *mpctx)
         // After a seek, make sure to wait until the first frame is visible.
         if (!opts->video_latency_hacks) {
             vo_wait_frame(vo);
+            int64_t first_frame_time = mp_time_ns();
             MP_VERBOSE(mpctx, "first video frame after restart shown\n");
+            if (getenv("MPV_RENDER_WARMUP_TRACE")) {
+                MP_INFO(mpctx, "render-warmup-trace: event=first-frame time_ns=%lld "
+                        "entry=%lld url=%s\n", (long long)first_frame_time,
+                        (long long)(mpctx->playing ? mpctx->playing->id : 0),
+                        mpctx->filename ? mpctx->filename : "");
+            }
         }
     }
 

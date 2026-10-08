@@ -330,6 +330,7 @@ typedef struct MPOpts {
     double demux_termination_timeout;
     bool demuxer_cache_wait;
     bool prefetch_open;
+    bool prefetch_render;
     int prefetch_open_max;
     int prefetch_open_history;
     bool prefetch_open_on_cache;

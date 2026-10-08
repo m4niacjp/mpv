@@ -1028,6 +1028,8 @@ static void clear_rpass(struct ra *ra, struct ra_tex *tex, float color[4],
                         struct mp_rect *rc)
 {
     struct ra_d3d11 *p = ra->priv;
+    if (!p->spirv)
+        return; // texture-only RA has no shader-based partial clear
     struct d3d_tex *tex_p = tex->priv;
     struct ra_tex_params *params = &tex->params;
 
@@ -1257,6 +1259,8 @@ static void blit(struct ra *ra, struct ra_tex *dst, struct ra_tex *src,
                  struct mp_rect *dst_rc_ptr, struct mp_rect *src_rc_ptr)
 {
     struct ra_d3d11 *p = ra->priv;
+    if (!p->spirv)
+        return; // RA_CAP_BLIT is absent for texture-only mapping
     struct d3d_tex *dst_p = dst->priv;
     struct d3d_tex *src_p = src->priv;
     struct mp_rect dst_rc = *dst_rc_ptr;
@@ -1791,8 +1795,11 @@ error:
 }
 
 static struct ra_renderpass *renderpass_create(struct ra *ra,
-    const struct ra_renderpass_params *params)
+                                              const struct ra_renderpass_params *params)
 {
+    struct ra_d3d11 *p = ra->priv;
+    if (!p->spirv)
+        return NULL;
     struct ra_renderpass *pass = talloc_zero(NULL, struct ra_renderpass);
     pass->params = *ra_renderpass_params_copy(pass, params);
     pass->params.cached_program = (bstr){0};
@@ -2397,9 +2404,9 @@ struct ra *ra_d3d11_create(ID3D11Device *dev, struct mp_log *log,
 
     // Even Direct3D 10level9 supports 3D textures
     ra->caps = RA_CAP_TEX_3D | RA_CAP_DIRECT_UPLOAD | RA_CAP_BUF_RO |
-               RA_CAP_BLIT | spirv->ra_caps;
+               RA_CAP_BLIT | (spirv ? spirv->ra_caps : 0);
 
-    ra->glsl_version = spirv->glsl_version;
+    ra->glsl_version = spirv ? spirv->glsl_version : 0;
     ra->glsl_vulkan = true;
 
     struct ra_d3d11 *p = ra->priv = talloc_zero(ra, struct ra_d3d11);
@@ -2457,6 +2464,14 @@ struct ra *ra_d3d11_create(ID3D11Device *dev, struct mp_log *log,
 
     if (ID3D11Device_GetCreationFlags(p->dev) & D3D11_CREATE_DEVICE_DEBUG)
         mp_d3d11_get_debug_interfaces(ra->log, &p->debug, &p->iqueue);
+
+    if (!spirv) {
+        // The hardware mapper needs format views and copies only. Keep the
+        // feature-level texture bound; avoid allocation probes and shaders.
+        ra->caps &= ~RA_CAP_BLIT;
+        setup_formats(ra);
+        return ra;
+    }
 
     // Some level 9_x devices don't have timestamp queries
     hr = ID3D11Device_CreateQuery(p->dev,

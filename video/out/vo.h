@@ -113,6 +113,9 @@ enum mp_voctrl {
 
     VOCTRL_UPDATE_RENDER_OPTS,
 
+    // Internal nearest-next request. Async submission takes ownership.
+    VOCTRL_RENDER_WARMUP,               // struct render_warmup_request* or NULL
+
     VOCTRL_GET_ICC_PROFILE,             // bstr*
     VOCTRL_GET_AMBIENT_LUX,             // double*
     VOCTRL_GET_DISPLAY_FPS,             // double*

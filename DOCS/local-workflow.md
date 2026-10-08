@@ -217,6 +217,26 @@ filter, or GPU memory. A pending read or worker preparation can delay the first
 frame. Measure first-frame time and I/O on the target storage; player timings
 alone do not identify a storage-layer cause.
 
+For `--prefetch-playlist-render` comparisons, hold the playlist and playback
+render options fixed. Use a fresh, empty, isolated `--gpu-shader-cache-dir` for
+each cold shader-cache trial and keep the VFS warm; this separates render
+compilation from media-read latency. A cold VFS trial measures storage and is
+a separate condition. Leave the live shader cache untouched. Test fixed
+explicit VPP settings and live RTX auto processing separately; results from
+the former do not establish parity for the latter. A trace or a single run
+does not establish a performance gain; use matched runs before making that
+claim.
+
+Set `MPV_RENDER_WARMUP_TRACE` in the environment before launching mpv to log
+warmup worker stages, timing fields, first-frame timing, and video flip
+submission. Fields named `time_ns` are captured from mpv's monotonic clock at
+the event; use them when comparing event times. The log prefix is generated
+when the logger writes the message, not when the event occurs, and may use a
+different clock. It can include logger-delivery delay, which clock calibration
+cannot remove, so treat prefixes as logger-observed history rather than event
+timestamps. `vo-flip-submit` is measured around the flip-submission call, not
+at physical display scanout.
+
 ### 5. Promote and prove the published result
 
 Only after review and verification pass, fast-forward `master` to the staging

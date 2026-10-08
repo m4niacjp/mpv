@@ -23,6 +23,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #include "mpv_talloc.h"
 
 #include "config.h"
@@ -123,6 +127,9 @@ struct vo_internal {
     mp_thread thread;
     struct mp_dispatch_queue *dispatch;
     struct dr_helper *dr_helper;
+    bool trace_render_warmup;
+    int64_t trace_last_flip;
+    unsigned long trace_thread_id;
 
     // --- The following fields are protected by lock
     mp_mutex lock;
@@ -296,6 +303,7 @@ static struct vo *vo_create(bool probing, struct mpv_global *global,
         .req_frames = 1,
         .frame_refs = 2, // current_frame + frame_queued
         .estimated_vsync_jitter = -1,
+        .trace_render_warmup = getenv("MPV_RENDER_WARMUP_TRACE") != NULL,
         .stats = stats_ctx_create(vo, global, "vo"),
     };
     mp_dispatch_set_wakeup_fn(vo->in->dispatch, dispatch_wakeup_cb, vo);
@@ -682,6 +690,9 @@ void vo_control_async(struct vo *vo, int request, void *data)
     case VOCTRL_UPDATE_PLAYBACK_STATE:
         d[2] = talloc_dup(d, (struct voctrl_playback_state *)data);
         break;
+    case VOCTRL_RENDER_WARMUP:
+        d[2] = talloc_steal(d, data);
+        break;
     case VOCTRL_KILL_SCREENSAVER:
     case VOCTRL_RESTORE_SCREENSAVER:
         break;
@@ -1015,7 +1026,21 @@ static bool render_frame(struct vo *vo)
 
         stats_time_start(in->stats, "video-flip");
 
+        int64_t flip_start = in->trace_render_warmup ? mp_time_ns() : 0;
         vo->driver->flip_page(vo);
+        if (in->trace_render_warmup) {
+            int64_t flip_end = mp_time_ns();
+            MP_INFO(vo, "render-warmup-trace: event=vo-flip-submit "
+                    "tid=%lu frame=%llu pts=%.9f time_ns=%lld interval_ns=%lld "
+                    "call_ns=%lld\n",
+                    in->trace_thread_id, (unsigned long long)frame->frame_id,
+                    frame->current ? frame->current->pts : MP_NOPTS_VALUE,
+                    (long long)flip_start,
+                    (long long)(in->trace_last_flip
+                        ? flip_start - in->trace_last_flip : 0),
+                    (long long)(flip_end - flip_start));
+            in->trace_last_flip = flip_start;
+        }
 
         struct vo_vsync_info vsync = {
             .last_queue_display_time = -1,
@@ -1118,6 +1143,13 @@ static MP_THREAD_VOID vo_thread(void *ptr)
     bool vo_paused = false;
 
     mp_thread_set_name("vo");
+#ifdef _WIN32
+    in->trace_thread_id = GetCurrentThreadId();
+    if (in->trace_render_warmup) {
+        MP_INFO(vo, "render-warmup-trace: event=vo-thread tid=%lu phase=initial priority=%d\n",
+                in->trace_thread_id, GetThreadPriority(GetCurrentThread()));
+    }
+#endif
 
     if (vo->driver->get_image) {
         in->dr_helper = dr_helper_create(in->dispatch, get_image_vo, vo);
@@ -1125,6 +1157,13 @@ static MP_THREAD_VOID vo_thread(void *ptr)
     }
 
     int r = vo->driver->preinit(vo) ? -1 : 0;
+#ifdef _WIN32
+    if (in->trace_render_warmup) {
+        MP_INFO(vo, "render-warmup-trace: event=vo-thread tid=%lu "
+                "phase=post-preinit priority=%d\n", in->trace_thread_id,
+                GetThreadPriority(GetCurrentThread()));
+    }
+#endif
     mp_rendezvous(vo, r); // init barrier
     if (r < 0)
         goto done;

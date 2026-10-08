@@ -4463,6 +4463,44 @@ Demuxer
     ``playlist-clear``) retarget future prefetching and invalidate retained
     demuxers that no longer match the configured playlist windows.
 
+``--prefetch-playlist-render=<yes|no>``
+    Attempt to warm video rendering for the nearest upcoming playlist entry in
+    the background (default: no). This requires ``--prefetch-playlist=yes`` and
+    begins only after normal prefetch has opened that entry. It currently
+    requires ``--vo=gpu-next`` with D3D11 support (Windows), a usable shader
+    cache and display target, and a filesystem path; protocol URLs are not
+    eligible, but mounted remote filesystems can be used.
+
+    The worker uses a private demuxer, decoder/filter graph, D3D11 device, and
+    renderer. It decodes a real frame, renders the output of its private video
+    filter graph, and shares only libplacebo's thread-safe cache with live
+    rendering. The decoded frame is not passed to playback. On Windows, the
+    worker verifies that its own OS thread is running at below-normal priority;
+    if it cannot set that priority, it skips the request. It does not change
+    the live video thread or GPU device priority. Warmup performs decoding and
+    filtering plus bounded GPU work; it is not CPU-only shader compilation.
+    The worker waits for about 250 ms of stable current playback before
+    starting resource setup and rendering work. This gate applies only to
+    render warmup; ordinary packet prefetch and the current video's first
+    frame keep their normal paths.
+
+    Warmup uses a snapshot of the currently effective global options. It
+    cannot predict the next entry's effective options after filename or
+    directory profiles, watch-later files, hooks, or scripts run, so the
+    warmup may not benefit playback. Playback uses its actual options and
+    cache keys; warmup is best-effort and does not change rendering
+    correctness. mpv skips known unsupported cases such as per-entry
+    parameters, ``--lavfi-complex``, protocol URLs, ambiguous or secondary
+    video selection, unsupported attached/image/group video targets, user
+    shaders, ICC profiles, LUTs, and raw libplacebo options. State changes or
+    cancellation can discard a request, and a canceled request may not be
+    retried for the same entry. Filters that require live OSD or VO context
+    may fail in the private graph. Normal playlist navigation does not wait
+    for warmup readiness, but VO teardown/recreation and final quit join the
+    worker and can wait for an in-progress compiler call. No cancellation time
+    bound is guaranteed for that call. Warmup does not guarantee an instant
+    first frame.
+
 ``--prefetch-playlist-max=<N>``
     Limit how many future playlist entries ``--prefetch-playlist=yes`` retains
     prefetched at once (default: 1). This is independent of

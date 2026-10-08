@@ -218,6 +218,7 @@ void mp_destroy(struct MPContext *mpctx)
     mp_assert(!mpctx->num_abort_list);
     talloc_free(mpctx->abort_list);
     mp_mutex_destroy(&mpctx->abort_lock);
+    TA_FREEP(&mpctx->render_prefetch_options);
     talloc_free(mpctx->mconfig); // destroy before dispatch
     talloc_free(mpctx);
 }
