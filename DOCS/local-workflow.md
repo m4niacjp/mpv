@@ -372,12 +372,40 @@ The real-config arm reads `%APPDATA%\mpv`; the A/B conditions disable
 
 ## Test suite caveat on this checkout
 
-`meson test -C build` reports 230 passing with three known environment failures
-that are unrelated to local source changes:
+The UCRT64 `--wrap-mode=nofallback` tree was verified on 2026-10-08 before
+and after the upstream integration: 37 of 38 tests pass. `libmpv-lifetime`
+fails on shutdown with `GGML_ASSERT(prev != ggml_uncaught_exception)` in
+the external ggml 0.25.3 dependency, exit `0xc0000409`. Unset `PWD` before
+running Meson tests from MSYS2. Do not treat this known failure as a pass.
 
-- `ffmpeg - mpv:img-format` and `ffmpeg - mpv:scale-sws` fail because
-  `core.autocrlf=true` checks out `test/ref/**/*.txt` with CRLF while the test
-  binaries write LF. The byte delta equals the CR count exactly, and the
-  reference files are unmodified in the index.
-- `libuv:libuv_run_tests` times out at 300s; it belongs to the libuv subproject,
-  not mpv.
+The older clang/wrap tree had different tests and failures (CRLF reference
+outputs in `img-format`/`scale-sws`, plus the libuv subproject timeout);
+those results do not describe the current UCRT64 build.
+
+### Upstream integration verified 2026-10-08
+
+- Imported 17 commits from `3186d369f9` through `36abaa32d0` on a staging
+  branch, preserving fork history. The only overlapping files were
+  `demux/demux.c` and `meson.build`; their changes merged without conflicts.
+  Reviewed cache hysteresis against the local prefetch limits, MKV seeking,
+  curl failure/cancellation handling, lavfi parameters, Windows SMTC, OSC,
+  and build/CI changes. SMTC and DRM are not enabled in this Windows build.
+- Committed the pending D3D11 VPP fixes and the Roaming patch linked above.
+  A real GPU probe with `scale=0.7507:nvidia-true-hdr=yes` on 720x1280 input
+  produced a correctly tagged first HDR frame and a 540x960 crop matching
+  the rounded output dimensions. VP9 RTX playback and exact seeks to the
+  beginning and end were visually checked. All three Roaming Lua suites pass.
+- The complete Meson suite matches the baseline described above, including
+  passing prefetch, file-loading, and lavfi-complex tests. HTTPS playback of
+  the upstream PNG fixture used curl successfully (HTTP 206).
+- Bounded `X:\XXX\Best` playback with the existing benchmark probe, live
+  config options, automatic scripts disabled, and null video/audio output
+  verified real mount opens and playlist-next demuxer adoption. Initial
+  playback took 2.900 s on the first run and 0.009 s on the repeat; prefetched
+  transitions took 0.041/0.037 s. Neither run logged prefetch cancellation.
+  Cold-cache status is unconfirmed: the old rclone RC auth file is absent.
+  System sampling averaged 6.08% CPU and 5.02 MB/s disk traffic, with other
+  applications active; these are smoke checks, not an isolated benchmark.
+- Pre-commit passes on the four local changed files. The all-files run
+  found pre-existing benchmark EOF/line-ending and spelling issues; its
+  unrelated automatic edits were reverted. No checks were weakened.
