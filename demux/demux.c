@@ -167,6 +167,8 @@ struct demux_internal {
     struct mpv_global *global;
     struct demux_packet_pool *packet_pool;
     struct stats_ctx *stats;
+    bool trace_shutdown;       // immutable, opt-in diagnostic instrumentation
+    void *trace_stream;        // identity only; never dereferenced
 
     bool can_cache;             // not a slave demuxer; caching makes sense
     bool can_record;            // stream recording is allowed
@@ -1125,11 +1127,21 @@ int demux_get_num_stream(struct demuxer *demuxer)
     return r;
 }
 
+static void trace_shutdown(struct demux_internal *in, const char *stage)
+{
+    if (in->trace_shutdown) {
+        MP_VERBOSE(in, "shutdown-trace t=%.6f id=%p stream=%p stage=%s file=%s\n",
+                   mp_time_sec(), (void *)in, in->trace_stream,
+                   stage, in->d_user->filename);
+    }
+}
+
 // It's UB to call anything but demux_dealloc() on the demuxer after this.
 static void demux_shutdown(struct demux_internal *in)
 {
     struct demuxer *demuxer = in->d_user;
 
+    trace_shutdown(in, "shutdown-enter");
     if (in->recorder) {
         mp_recorder_destroy(in->recorder);
         in->recorder = NULL;
@@ -1137,12 +1149,16 @@ static void demux_shutdown(struct demux_internal *in)
 
     dumper_close(in);
 
+    trace_shutdown(in, "container-close-begin");
     if (demuxer->desc->close)
         demuxer->desc->close(in->d_thread);
+    trace_shutdown(in, "container-close-end");
     demuxer->priv = NULL;
     in->d_thread->priv = NULL;
 
+    trace_shutdown(in, "packet-flush-begin");
     demux_flush(demuxer);
+    trace_shutdown(in, "packet-flush-end");
     mp_assert(in->total_bytes == 0);
 
     in->current_range = NULL;
@@ -1151,17 +1167,21 @@ static void demux_shutdown(struct demux_internal *in)
     talloc_free(in->cache);
     in->cache = NULL;
 
+    trace_shutdown(in, "stream-free-begin");
     if (in->owns_stream)
         free_stream(demuxer->stream);
     demuxer->stream = NULL;
+    trace_shutdown(in, "shutdown-end");
 }
 
 static void demux_dealloc(struct demux_internal *in)
 {
+    trace_shutdown(in, "dealloc-begin");
     for (int n = 0; n < in->num_streams; n++)
         talloc_free(in->streams[n]);
     mp_mutex_destroy(&in->lock);
     mp_cond_destroy(&in->wakeup);
+    trace_shutdown(in, "dealloc-final-free");
     talloc_free(in->d_user);
 }
 
@@ -1192,11 +1212,13 @@ struct demux_free_async_state *demux_free_async(struct demuxer *demuxer)
     if (!in->threading)
         return NULL;
 
+    trace_shutdown(in, "request-before-lock");
     mp_mutex_lock(&in->lock);
     in->thread_terminate = true;
     in->shutdown_async = true;
     mp_cond_signal(&in->wakeup);
     mp_mutex_unlock(&in->lock);
+    trace_shutdown(in, "request-signalled");
 
     return (struct demux_free_async_state *)demuxer->in; // lies
 }
@@ -1208,7 +1230,12 @@ void demux_free_async_force(struct demux_free_async_state *state)
 {
     struct demux_internal *in = (struct demux_internal *)state; // reverse lies
 
+    bool first = !mp_cancel_test(in->d_user->cancel);
+    if (first)
+        trace_shutdown(in, "cancel-begin");
     mp_cancel_trigger(in->d_user->cancel);
+    if (first)
+        trace_shutdown(in, "cancel-end");
 }
 
 // Check whether the demuxer is shutdown yet. If not, return false, and you
@@ -1227,7 +1254,9 @@ bool demux_free_async_finish(struct demux_free_async_state *state)
     if (busy)
         return false;
 
+    trace_shutdown(in, "join-begin");
     demux_stop_thread(in->d_user);
+    trace_shutdown(in, "join-end");
     demux_dealloc(in);
     return true;
 }
@@ -2458,8 +2487,18 @@ static bool read_packet(struct demux_internal *in)
     struct demux_packet *pkt = NULL;
 
     bool eof = true;
+    double read_start = in->trace_shutdown ? mp_time_sec() : 0;
     if (demux->desc->read_packet && !demux_read_interrupted(demux))
         eof = !demux->desc->read_packet(demux, &pkt);
+    if (in->trace_shutdown) {
+        double end = mp_time_sec();
+        if (end - read_start >= 0.05 || demux_read_interrupted(demux)) {
+            MP_VERBOSE(in, "shutdown-trace id=%p stage=read-packet-end "
+                       "start=%.6f end=%.6f ms=%.3f interrupted=%d file=%s\n",
+                       (void *)in, read_start, end, (end - read_start) * 1000,
+                       demux_read_interrupted(demux), demux->filename);
+        }
+    }
 
     mp_mutex_lock(&in->lock);
     update_cache(in);
@@ -2790,9 +2829,11 @@ static MP_THREAD_VOID demux_thread(void *pctx)
 
     if (in->shutdown_async) {
         mp_mutex_unlock(&in->lock);
+        trace_shutdown(in, "worker-loop-exit");
         demux_shutdown(in);
         mp_mutex_lock(&in->lock);
         in->shutdown_async = false;
+        trace_shutdown(in, "worker-complete");
         if (in->wakeup_cb)
             in->wakeup_cb(in->wakeup_cb_ctx);
     }
@@ -3590,6 +3631,8 @@ static struct demuxer *open_given_type(struct mpv_global *global,
         .log = demuxer->log,
         .packet_pool = demux_packet_pool_get(global),
         .stats = stats_ctx_create(in, global, "demuxer"),
+        .trace_shutdown = getenv("MPV_DEMUX_SHUTDOWN_TRACE") != NULL,
+        .trace_stream = stream,
         .can_cache = params && params->is_top_level,
         .can_record = params && params->stream_record,
         .d_thread = talloc(demuxer, struct demuxer),

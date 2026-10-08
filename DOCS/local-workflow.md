@@ -370,6 +370,38 @@ The real-config arm reads `%APPDATA%\mpv`; the A/B conditions disable
 (mpv probes every entry under `scripts\`, so renaming it in place would log
 "Can't load unknown script"); the move is hash-guarded and restored afterwards.
 
+## Opt-in demuxer shutdown diagnostics
+
+Set `MPV_DEMUX_SHUTDOWN_TRACE=1` only in the test player's environment to
+record `shutdown-trace` messages. The demuxer logs its identity, source file,
+termination/cancellation requests, worker-loop exit, container cleanup, packet
+flush, stream release, and thread join. File streams report reads taking at
+least 50 ms (or completing after cancellation), including their start/end
+times, byte position and requested/returned lengths; close calls have explicit
+begin/end markers. Stream identities correlate file I/O with the owning
+demuxer even when several prefetch workers share a log prefix. A logged slow
+read is the synchronous file API interval, not proof of a particular backend
+request or storage fault. Diagnostics are disabled when the variable is absent.
+
+`benchmarks/vfs-bench/Invoke-QuickPlaylistTrace.ps1 -Folder 'D:\DL'
+-OutDir '<new absolute output directory>' -TraceShutdown` runs the live config,
+holds the initial video for 10 seconds after the first-frame notification,
+then advances six times immediately after each first frame and quits. The
+output contains process CPU/I/O counters, system samples, raw events/logs and
+protocol verification. `-HoldSeconds` changes the initial hold. No cache is
+cleared by this runner; local Windows file-cache state is uncontrolled.
+
+For a cold **rclone VFS** trial, run
+`benchmarks/vfs-bench/Invoke-ColdWcryptPlaylistTrace.ps1 -OutDir '<new directory>'`
+from elevated PowerShell 7. It uses the installed wcrypt stop/restart scripts,
+checks restart capability before stopping, refuses pending uploads or dirty
+metadata, validates deletion paths/reparse points, removes only
+`D:\rclone-wasabi-cache\vfs\wcrypt` and `vfsMeta\wcrypt`, and restarts in a
+`finally` block. It preserves logs and other mounts. A zero-file/zero-byte VFS
+cache must be observed before the `I:\XXX\Short Sexy` trial. This does not
+certify empty shader, operating-system or remote-service caches. Raw RC
+snapshots before/after allow backend transfer accounting without exposing auth.
+
 ## Test suite caveat on this checkout
 
 The UCRT64 `--wrap-mode=nofallback` tree was verified on 2026-10-08 before

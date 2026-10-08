@@ -20,6 +20,7 @@
 #include "config.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -30,6 +31,7 @@
 #endif
 
 #include "osdep/io.h"
+#include "osdep/timer.h"
 
 #include "common/common.h"
 #include "common/msg.h"
@@ -93,6 +95,7 @@ struct priv {
     bool appending;
     int64_t orig_size;
     struct mp_cancel *cancel;
+    bool trace_shutdown;
 };
 
 // Total timeout = RETRY_TIMEOUT * MAX_RETRIES
@@ -130,7 +133,20 @@ static int fill_buffer(stream_t *s, void *buffer, int max_len)
 #endif
 
     for (int retries = 0; retries < MAX_RETRIES; retries++) {
+        double start = p->trace_shutdown ? mp_time_sec() : 0;
         int r = read(p->fd, buffer, max_len);
+        int saved_errno = errno;
+        if (p->trace_shutdown) {
+            double end = mp_time_sec();
+            if (end - start >= 0.05 || mp_cancel_test(s->cancel)) {
+                MP_VERBOSE(s, "shutdown-trace stream=%p stage=file-read-end "
+                           "start=%.6f end=%.6f ms=%.3f pos=%"PRId64" "
+                           "requested=%d returned=%d cancelled=%d file=%s\n",
+                           (void *)s, start, end, (end - start) * 1000, s->pos,
+                           max_len, r, mp_cancel_test(s->cancel), s->url);
+            }
+        }
+        errno = saved_errno;
         if (r > 0)
             return r;
 
@@ -167,8 +183,23 @@ static int seek(stream_t *s, int64_t newpos)
 static void s_close(stream_t *s)
 {
     struct priv *p = s->priv;
-    if (p->close)
+    if (p->close) {
+        double start = p->trace_shutdown ? mp_time_sec() : 0;
+        if (p->trace_shutdown) {
+            MP_VERBOSE(s, "shutdown-trace t=%.6f stream=%p "
+                       "stage=file-close-begin fd=%d file=%s\n",
+                       start, (void *)s, p->fd, s->url);
+        }
         close(p->fd);
+        int saved_errno = errno;
+        if (p->trace_shutdown) {
+            double end = mp_time_sec();
+            MP_VERBOSE(s, "shutdown-trace t=%.6f stream=%p "
+                       "stage=file-close-end ms=%.3f file=%s\n",
+                       end, (void *)s, (end - start) * 1000, s->url);
+        }
+        errno = saved_errno;
+    }
 }
 
 // If url is a file:// URL, return the local filename, otherwise return NULL.
@@ -278,6 +309,7 @@ static int open_f(stream_t *stream, const struct stream_open_args *args)
     struct priv *p = talloc_ptrtype(stream, p);
     *p = (struct priv) {
         .fd = -1,
+        .trace_shutdown = getenv("MPV_DEMUX_SHUTDOWN_TRACE") != NULL,
     };
     stream->priv = p;
     stream->is_local_fs = true;
