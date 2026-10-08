@@ -204,6 +204,19 @@ uncached file and a warm repeat when practical. Do not delete the entire rclone
 VFS cache merely to manufacture a cold run; choose an uncached file or obtain
 explicit approval for isolated cache eviction.
 
+When validating `--prefetch-playlist-history`, advance through a playlist and
+then return to retained earlier entries. Check that playback starts at the
+logical beginning, exercise both cached-start and seek/refill cases, and verify
+that playlist edits and demuxer-affecting track-selection changes invalidate
+stale entries. Threaded demuxers can reuse seekable regular filesystem paths,
+including mounted remote paths, when initial A/V timestamps are known;
+unsupported cases follow the normal open path.
+The seconds setting is a refill/read-ahead target, not a cache lifetime, and
+the byte cap covers demuxer packet data rather than total process, decoder,
+filter, or GPU memory. A pending read or worker preparation can delay the first
+frame. Measure first-frame time and I/O on the target storage; player timings
+alone do not identify a storage-layer cause.
+
 ### 5. Promote and prove the published result
 
 Only after review and verification pass, fast-forward `master` to the staging
@@ -272,6 +285,10 @@ its own `AGENTS.md`.
   `<name>-before-<short-reason>-<YYYYMMDD-HHMMSS>`.
 - **Reload:** Roaming Lua is not hot-reloaded; mpv must restart to pick up a
   script change.
+- **New player options:** Update the deployed player before adding new options
+  to the live `mpv.conf`; back up the config first. For example,
+  `prefetch-playlist-history=1` retains one earlier playlist entry, as described
+  in the [options manual](man/options.rst).
 - Finish with a harness run (below), or state explicitly what could not be
   verified — real playback, display, and GPU behavior usually needs the user.
 

@@ -208,6 +208,7 @@ static void uninit_demuxer(struct MPContext *mpctx)
     struct demuxer **demuxers = NULL;
     int num_demuxers = 0;
 
+    struct demuxer *main_demuxer = mpctx->demuxer;
     if (mpctx->demuxer)
         MP_TARRAY_APPEND(NULL, demuxers, num_demuxers, mpctx->demuxer);
     mpctx->demuxer = NULL;
@@ -234,7 +235,17 @@ static void uninit_demuxer(struct MPContext *mpctx)
     }
     mpctx->num_tracks = 0;
 
-    kill_demuxers_reentrant(mpctx, demuxers, num_demuxers);
+    // Preparation may reset consumer state on the worker. Remove all player
+    // track references first, and keep the target entry protected in the pool.
+    if (main_demuxer && retain_demuxer(mpctx, main_demuxer))
+        MP_TARRAY_REMOVE_AT(demuxers, num_demuxers, 0);
+
+    if (mpctx->opts->prefetch_open_history > 0) {
+        for (int n = 0; n < num_demuxers; n++)
+            retire_demuxer(mpctx, demuxers[n]);
+    } else {
+        kill_demuxers_reentrant(mpctx, demuxers, num_demuxers);
+    }
     talloc_free(demuxers);
 }
 
@@ -1769,8 +1780,8 @@ static void play_current_file(struct MPContext *mpctx)
 
     mp_start_autocreate_playlist(mpctx);
 
-    if (mpctx->opts->rebase_start_time)
-        demux_set_ts_offset(mpctx->demuxer, -mpctx->demuxer->start_time);
+    demux_set_ts_offset(mpctx->demuxer, mpctx->opts->rebase_start_time
+                        ? -mpctx->demuxer->start_time : 0);
     enable_demux_thread(mpctx, mpctx->demuxer);
 
     add_demuxer_tracks(mpctx, mpctx->demuxer);

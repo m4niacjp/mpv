@@ -456,10 +456,11 @@ char *format_file_size(int64_t size);
 #define UPDATE_VIDEO            (UINT64_C(1) << 15)  // force redraw if needed
 #define UPDATE_VO               (UINT64_C(1) << 16)  // reinit the VO
 #define UPDATE_CLIPBOARD        (UINT64_C(1) << 17)  // reinit the clipboard
-#define UPDATE_DEMUXER          (UINT64_C(1) << 18)  // invalidate --prefetch-playlist's data
+#define UPDATE_DEMUXER          (UINT64_C(1) << 18)  // demuxer/selection options changed
 #define UPDATE_AD               (UINT64_C(1) << 19)  // reinit audio chain and decoder
 #define UPDATE_VD               (UINT64_C(1) << 20)  // reinit video chain and decoder
-#define UPDATE_OPT_LAST         (UINT64_C(1) << 20)
+#define UPDATE_PREFETCH         (UINT64_C(1) << 21)  // invalidate playlist prefetch pools
+#define UPDATE_OPT_LAST         (UINT64_C(1) << 21)
 
 // All bits between of UPDATE_ flags
 #define UPDATE_OPTS_MASK        ((UPDATE_OPT_LAST << 1) - 1)

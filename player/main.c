@@ -181,6 +181,7 @@ void mp_destroy(struct MPContext *mpctx)
     // Prefetch/async opens are not outstanding_async; drop them before
     // talloc_free(mpctx) destroys playback_abort / leftover open cancels.
     cancel_open(mpctx);
+    drain_demuxers(mpctx);
 
     mp_uninit_ipc(mpctx->ipc_ctx);
     mpctx->ipc_ctx = NULL;

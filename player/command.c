@@ -8532,6 +8532,8 @@ void mp_option_run_callback(struct MPContext *mpctx, struct mp_option_callback *
 
     if (flags & UPDATE_DEMUXER)
         mpctx->demuxer_changed = true;
+    if (flags & UPDATE_PREFETCH)
+        mpctx->prefetch_changed = true;
 
     if (flags & UPDATE_AD && mpctx->ao_chain) {
         uninit_audio_chain(mpctx);

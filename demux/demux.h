@@ -330,6 +330,10 @@ void demux_set_wakeup_cb(struct demuxer *demuxer, void (*cb)(void *ctx), void *c
 void demux_start_prefetch(struct demuxer *demuxer);
 void demux_set_prefetch_limits(struct demuxer *demuxer, double secs,
                                int64_t bytes);
+bool demux_prepare_prefetch(struct demuxer *demuxer, double secs,
+                            int64_t bytes);
+// 0: preparing, 1: beginning verified, -1: seek failed; reopen instead.
+int demux_prefetch_prepare_state(struct demuxer *demuxer);
 void demux_drive_nav(struct demuxer *demuxer);
 void demux_nav_refresh(struct demuxer *demuxer);
 void demux_set_stream_still_image(struct demuxer *demuxer,

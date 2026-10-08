@@ -11,6 +11,21 @@ audio = custom_target('audio.flac',
               'sine=frequency=1000:duration=2', '@OUTPUT@'],
 )
 
+rolling = executable('libmpv-test-rolling', '../libmpv_test_rolling.c',
+                     include_directories: incdir, dependencies: libmpv_dep)
+test('libmpv-test-rolling', rolling, args: video.full_path(),
+     depends: video, suite: 'libmpv')
+
+# Audio begins before the first video keyframe, as in common AAC/MKV files.
+rolling_av = custom_target('rolling-av.mkv',
+    output: 'rolling-av.mkv',
+    command: [ffmpeg, '-v', 'error', '-y', '-itsoffset', '0.04', '-i', video,
+              '-i', audio, '-map', '0:v', '-map', '1:a', '-c:v', 'copy',
+              '-c:a', 'aac', '@OUTPUT@'],
+)
+test('libmpv-test-rolling-av', rolling, args: rolling_av.full_path(),
+     depends: rolling_av, suite: 'libmpv')
+
 sub = join_paths(source_root, 'test', 'samples', 'sub.srt')
 img_sub = join_paths(source_root, 'test', 'samples', 'img_sub.idx')
 

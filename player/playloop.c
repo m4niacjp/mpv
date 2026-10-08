@@ -53,6 +53,7 @@
 // mp_wait_events() was called.
 void mp_wait_events(struct MPContext *mpctx)
 {
+    reap_demuxers(mpctx);
     mp_client_send_property_changes(mpctx);
 
     stats_event(mpctx->stats, "iterations");
@@ -64,6 +65,7 @@ void mp_wait_events(struct MPContext *mpctx)
     mp_dispatch_queue_process(mpctx->dispatch, mpctx->sleeptime);
 
     mpctx->sleeptime = INFINITY;
+    reap_demuxers(mpctx);
 
     if (sleeping)
         MP_STATS(mpctx, "end sleep");

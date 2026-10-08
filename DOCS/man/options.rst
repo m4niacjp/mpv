@@ -4440,8 +4440,9 @@ Demuxer
     Prefetch future playlist entries while playback of the current entry is
     ending (default: no). This merely opens their URLs one at a time as soon as
     the configured prefetch trigger is reached. At most
-    ``--prefetch-playlist-max`` entries are retained; its default of 1
-    preserves prefetching only the next entry.
+    ``--prefetch-playlist-max`` future entries are retained; its default of 1
+    preserves prefetching only the next entry. Earlier playlist entries can be
+    retained separately with ``--prefetch-playlist-history``.
 
     This does **not** work with URLs resolved by the ``youtube-dl`` wrapper,
     and it won't.
@@ -4459,15 +4460,15 @@ Demuxer
 
     Playlist edits (``playlist-move``, ``playlist-reorder``,
     ``playlist-shuffle``, ``playlist-unshuffle``, ``playlist-remove``,
-    ``playlist-clear``) retarget prefetch to the new next entries and drop
-    retained demuxers that left that window. This can still make wrong
-    prefetching decisions when you go backwards in the playlist.
+    ``playlist-clear``) retarget future prefetching and invalidate retained
+    demuxers that no longer match the configured playlist windows.
 
 ``--prefetch-playlist-max=<N>``
     Limit how many future playlist entries ``--prefetch-playlist=yes`` retains
-    prefetched at once (default: 1). The value must be an integer from 1 to
-    ``INT_MAX``. The default preserves the previous behavior of prefetching
-    only the next entry.
+    prefetched at once (default: 1). This is independent of
+    ``--prefetch-playlist-history``, which controls retention of earlier
+    entries. The value must be an integer from 1 to ``INT_MAX``. The default
+    preserves the previous behavior of prefetching only the next entry.
 
     Entries are opened one at a time, and future entries use a tiered caching model.
     The immediate next entry (position 1) expands toward ``--prefetch-playlist-cache-secs``
@@ -4482,6 +4483,40 @@ Demuxer
     Further retained entries are not opened until that start window is full
     and the current demuxer is not underrunning. Set both start options to 0
     to fill each entry toward the full cache caps immediately.
+
+``--prefetch-playlist-history=<N>``
+    Retain up to N earlier playlist entries for reuse when playback moves back
+    to them (default: 0). A value of 0 disables backward retention and
+    preserves normal disposal when leaving an entry. N must be an integer from
+    0 to ``INT_MAX``. This requires
+    ``--prefetch-playlist=yes`` and is independent of
+    ``--prefetch-playlist-max``, which limits future entries.
+
+    A retained entry uses ``--prefetch-playlist-cache-secs`` as its read-ahead
+    target and ``--prefetch-playlist-cache-bytes`` as its per-demuxer packet
+    budget. It is reused only while its playlist identity, URL, stream flags,
+    and demuxer options still match; changes to demuxer-affecting track
+    selection invalidate it. When selected again, it starts from the source's
+    logical beginning, not its former playback position. mpv can keep the
+    cached beginning when it covers the start and fits the byte budget;
+    otherwise the demuxer worker resets its cache and seeks/reads again. The
+    seconds setting is not a cache lifetime: useful packets can remain cached
+    beyond that target while they fit the byte budget. External files are
+    discovered and opened normally.
+
+    Reuse requires a threaded demuxer reading a seekable regular filesystem
+    path (including mounted remote paths), with known initial audio/video
+    timestamps. Recording or encoding, disc navigation, timeline input,
+    per-file parameters, canceled or stale entries, and unsupported or
+    unseekable files use the normal open path. If the prepared beginning does
+    not match the known initial A/V timestamps, mpv discards it and opens the
+    entry again. A pending read or worker preparation can delay playback, so
+    retention does not guarantee an immediate first frame.
+
+    Evicted demuxers are cleaned up asynchronously, with at most two cleanups
+    outstanding. New speculative opens pause near this limit; if both cleanup
+    slots are occupied, a handover can wait for a slot. Pending cleanup is
+    drained when mpv shuts down.
 
 ``--prefetch-playlist-on-cache=<yes|no>``
     Start ``--prefetch-playlist`` for its configured set of future entries as
@@ -4506,11 +4541,15 @@ Demuxer
 
 ``--prefetch-playlist-cache-secs=<seconds>``
     Override how many seconds each prefetched playlist entry should read ahead.
-    A value of 0 uses the normal demuxer/cache settings (default: 0).
+    For retained history entries, this is a refill target, not a lifetime for
+    cached packets. A value of 0 uses the normal demuxer/cache settings
+    (default: 0).
 
 ``--prefetch-playlist-cache-bytes=<bytesize>``
     Override ``--demuxer-max-bytes`` for each prefetched playlist entry. A
-    value of 0 uses the normal demuxer/cache settings (default: 0).
+    value of 0 uses the normal demuxer/cache settings (default: 0). This is a
+    demuxer packet-cache limit, not a limit on total process memory or decoder,
+    filter, and GPU resources.
 
 ``--prefetch-playlist-start-secs=<seconds>``
     How many seconds of the immediate next playlist entry to read before

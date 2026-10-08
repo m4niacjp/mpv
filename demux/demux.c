@@ -172,6 +172,7 @@ struct demux_internal {
 
     bool can_cache;             // not a slave demuxer; caching makes sense
     bool can_record;            // stream recording is allowed
+    bool regular_file;          // immutable source eligibility for reuse
 
     // The demuxer runs potentially in another thread, so we keep two demuxer
     // structs; the real demuxer can access the shadow struct only.
@@ -217,6 +218,10 @@ struct demux_internal {
     size_t max_bytes_bw;
     double prefetch_limit_secs;
     size_t prefetch_limit_bytes;
+    bool prefetch_history;      // one total packet budget, no backward cache
+    bool prefetch_rewind;       // worker must prepare logical beginning
+    bool prefetch_verifying;    // await packets proving the seek succeeded
+    bool prefetch_failed;
     bool seekable_cache;
     bool using_network_cache_opts;
     char *record_filename;
@@ -414,6 +419,7 @@ struct demux_stream {
 
     bool global_correct_dts;// all observed so far
     bool global_correct_pos;
+    double initial_ts;        // first packet observed at the original beginning
 
     // current queue - used both for reading and demuxing (this is never NULL)
     struct demux_queue *queue;
@@ -474,10 +480,13 @@ static void demuxer_sort_chapters(demuxer_t *demuxer);
 static MP_THREAD_VOID demux_thread(void *pctx);
 static void update_cache(struct demux_internal *in);
 static void update_opts(struct demuxer *demuxer);
+static void flush_locked(struct demux_internal *in);
 static void add_packet_locked(struct sh_stream *stream, demux_packet_t *dp);
 static struct demux_packet *advance_reader_head(struct demux_stream *ds);
 static bool queue_seek(struct demux_internal *in, double seek_pts, int flags,
                        bool clear_back_state);
+static struct demux_cached_range *find_cache_seek_range(
+    struct demux_internal *in, double seek_pts, int flags);
 static struct demux_packet *compute_keyframe_times(struct demux_packet *pkt,
                                                    double *out_kf_min,
                                                    double *out_kf_max);
@@ -868,7 +877,7 @@ static void ds_clear_reader_state(struct demux_stream *ds,
     }
 }
 
-// called locked, from user thread only
+// Called locked by the user, or by the worker with no packet consumers.
 static void clear_reader_state(struct demux_internal *in,
                                bool clear_back_state)
 {
@@ -1045,6 +1054,7 @@ static void demux_add_sh_stream_locked(struct demux_internal *in,
         .index = sh->index,
         .global_correct_dts = true,
         .global_correct_pos = true,
+        .initial_ts = MP_NOPTS_VALUE,
     };
 
     struct demux_stream *ds = sh->ds;
@@ -1158,6 +1168,11 @@ static void demux_shutdown(struct demux_internal *in)
 
     trace_shutdown(in, "packet-flush-begin");
     demux_flush(demuxer);
+    if (in->shutdown_async) {
+        // The worker owns teardown, so release pooled payloads here instead
+        // of leaving a retired full cache resident until later packet reads.
+        demux_packet_pool_clear(in->packet_pool);
+    }
     trace_shutdown(in, "packet-flush-end");
     mp_assert(in->total_bytes == 0);
 
@@ -1331,11 +1346,66 @@ void demux_set_prefetch_limits(struct demuxer *demuxer, double secs,
     mp_mutex_lock(&in->lock);
     in->prefetch_limit_secs = secs;
     in->prefetch_limit_bytes = bytes > 0 ? bytes : 0;
+    in->prefetch_history = false;
     update_opts(demuxer);
     // Raising the limits must be able to restart a demuxer that already went
     // idle at the old (lower) target.
     mp_cond_signal(&in->wakeup);
     mp_mutex_unlock(&in->lock);
+}
+
+// Transfer a consumer-free regular-file demuxer to its worker for preparation.
+// The caller must not resume consumption before preparation has completed.
+// In particular, an outstanding read is allowed to finish without delaying
+// playback of another file. No packet pruning or low-level seek runs here.
+bool demux_prepare_prefetch(struct demuxer *demuxer, double secs, int64_t bytes)
+{
+    struct demux_internal *in = demuxer->in;
+    mp_assert(demuxer == in->d_user);
+
+    mp_mutex_lock(&in->lock);
+    bool eligible = in->threading && in->regular_file && in->can_cache &&
+                    demuxer->seekable && !demuxer->partially_seekable &&
+                    !demuxer->fully_read && demuxer->desc->seek &&
+                    !in->nav_active && !demuxer->no_cache_seeking &&
+                    !demux_cancel_test(demuxer) && !in->recorder &&
+                    !(demuxer->opts->record_file && demuxer->opts->record_file[0]) &&
+                    isfinite(demuxer->start_time) &&
+                    demuxer->start_time != MP_NOPTS_VALUE;
+    bool any_av = false;
+    for (int n = 0; eligible && n < in->num_streams; n++) {
+        struct demux_stream *ds = in->streams[n]->ds;
+        if (ds->eager && (ds->type == STREAM_VIDEO || ds->type == STREAM_AUDIO)) {
+            any_av = true;
+            eligible &= isfinite(ds->initial_ts) &&
+                        ds->initial_ts != MP_NOPTS_VALUE;
+        }
+    }
+    eligible &= any_av;
+    if (eligible) {
+        in->prefetch_limit_secs = secs;
+        in->prefetch_limit_bytes = bytes > 0 ? bytes : 0;
+        in->prefetch_history = true;
+        in->prefetch_rewind = true;
+        in->prefetch_failed = false;
+        // The unlocked read must discard its result until the worker resets
+        // the queues and chooses a cached or low-level seek atomically.
+        in->seeking = true;
+        in->reading = false;
+        mp_cond_signal(&in->wakeup);
+    }
+    mp_mutex_unlock(&in->lock);
+    return eligible;
+}
+
+int demux_prefetch_prepare_state(struct demuxer *demuxer)
+{
+    struct demux_internal *in = demuxer->in;
+    mp_mutex_lock(&in->lock);
+    int state = in->prefetch_failed || demux_cancel_test(demuxer) ? -1 :
+                in->prefetch_rewind || in->prefetch_verifying ? 0 : 1;
+    mp_mutex_unlock(&in->lock);
+    return state;
 }
 
 void demux_drive_nav(struct demuxer *demuxer)
@@ -2231,6 +2301,11 @@ static void add_packet_locked(struct sh_stream *stream, demux_packet_t *dp)
     struct demux_queue *queue = ds->queue;
 
     bool drop = !ds->selected || in->seeking || ds->sh->attached_picture;
+    if (!drop && queue->is_bof && ds->initial_ts == MP_NOPTS_VALUE &&
+        !in->prefetch_verifying && !in->prefetch_history)
+    {
+        ds->initial_ts = ts;
+    }
 
     if (!drop) {
         // If libavformat splits packets, some packets will have pos unset, so
@@ -2427,7 +2502,8 @@ static bool read_packet(struct demux_internal *in)
 
     MP_TRACE(in, "bytes=%zd, read_more=%d prefetch_more=%d, refresh_more=%d\n",
              (size_t)total_fw_bytes, read_more, prefetch_more, refresh_more);
-    if (total_fw_bytes >= in->max_bytes) {
+    uint64_t buffered_bytes = in->prefetch_history ? in->total_bytes : total_fw_bytes;
+    if (buffered_bytes >= in->max_bytes) {
         // if we hit the limit just by prefetching, simply stop prefetching
         if (!read_more) {
             in->hyst_active = in->hyst_secs > 0 || in->hyst_bytes > 0;
@@ -2542,7 +2618,8 @@ static void prune_old_packets(struct demux_internal *in)
         uint64_t max_avail = in->max_bytes_bw;
         // Backward cache (if enabled at all) can use unused forward cache.
         // Still leave 1 byte free, so the read_packet logic doesn't get stuck.
-        if (max_avail && in->max_bytes > (fw_bytes + 1) && in->d_user->opts->donate_fw)
+        if (max_avail && in->max_bytes > (fw_bytes + 1) &&
+            in->d_user->opts->donate_fw && !in->prefetch_history)
             max_avail += in->max_bytes - (fw_bytes + 1);
         if (in->total_bytes - fw_bytes <= max_avail)
             break;
@@ -2725,6 +2802,8 @@ static void update_opts(struct demuxer *demuxer)
         in->min_secs = in->prefetch_limit_secs;
     if (in->prefetch_limit_bytes > 0)
         in->max_bytes = in->prefetch_limit_bytes;
+    if (in->prefetch_history)
+        in->max_bytes_bw = 0;
     in->seekable_cache = seekable == 1;
     if (in->d_thread->no_cache_seeking)
         in->seekable_cache = false;
@@ -2772,16 +2851,113 @@ static void update_opts(struct demuxer *demuxer)
     free_empty_cached_ranges(in);
 }
 
+// Called only by the existing worker, while there are no packet consumers.
+static void execute_prefetch_rewind(struct demux_internal *in)
+{
+    double start = in->d_thread->start_time;
+    for (int n = 0; n < in->num_streams; n++) {
+        struct demux_stream *ds = in->streams[n]->ds;
+        if (ds->eager && (ds->type == STREAM_VIDEO || ds->type == STREAM_AUDIO))
+            start = MPMIN(start, ds->initial_ts);
+    }
+    // Preserve initial audio preroll even if the first video keyframe or
+    // container start is later. SEEK_HR suppresses cached A/V realignment.
+    int flags = SEEK_HR;
+    size_t budget = in->prefetch_limit_bytes > 0 ? in->prefetch_limit_bytes
+                                               : in->d_user->opts->max_bytes;
+    bool keep = in->total_bytes <= budget &&
+                find_cache_seek_range(in, start, flags);
+    in->back_demuxing = false;
+    in->back_any_need_recheck = false;
+    if (!keep) {
+        flush_locked(in);
+    }
+
+    // The pending low-level operation belonged to the previous consumer.
+    in->seeking = false;
+    bool accepted = queue_seek(in, start, flags, true);
+    update_opts(in->d_user);
+    // Reset/pruning must release old payloads, including unused cache ranges,
+    // rather than merely moving them outside this demuxer's byte accounting.
+    demux_packet_pool_clear(in->packet_pool);
+    if (in->seeking) {
+        execute_seek(in);
+    }
+
+    in->hyst_active = false;
+    in->reading = accepted && !in->thread_terminate;
+    in->prefetch_rewind = false;
+    in->prefetch_verifying = accepted && !in->thread_terminate;
+    in->prefetch_failed = !accepted;
+    MP_VERBOSE(in, "Preparing retained beginning (id=%p, cached=%d, bytes=%zu, "
+               "start=%.9f).\n", (void *)in, keep, in->total_bytes, start);
+}
+
+static void verify_prefetch_beginning(struct demux_internal *in)
+{
+    bool pending = false;
+    bool failed = false;
+    for (int n = 0; n < in->num_streams; n++) {
+        struct demux_stream *ds = in->streams[n]->ds;
+        if (!ds->eager || (ds->type != STREAM_VIDEO && ds->type != STREAM_AUDIO))
+            continue;
+        struct demux_packet *dp = ds->reader_head;
+        if (!dp) {
+            pending |= !ds->eof;
+            failed |= ds->eof;
+            continue;
+        }
+        double ts = MP_PTS_OR_DEF(dp->dts, dp->pts);
+        failed |= !isfinite(ts) || ts == MP_NOPTS_VALUE ||
+                  ts > ds->initial_ts + 0.001;
+    }
+    failed |= pending && !in->reading;
+    if (!failed && pending)
+        return;
+    in->prefetch_verifying = false;
+    in->prefetch_failed = failed;
+    if (failed) {
+        in->reading = false;
+        MP_VERBOSE(in, "Retained beginning verification failed (id=%p).\n",
+                   (void *)in);
+        for (int n = 0; n < in->num_streams; n++) {
+            struct demux_stream *ds = in->streams[n]->ds;
+            if (!ds->eager || (ds->type != STREAM_VIDEO && ds->type != STREAM_AUDIO))
+                continue;
+            struct demux_packet *dp = ds->reader_head;
+            MP_VERBOSE(in, "Retained stream %d (%s, eager=%d): initial=%.9f "
+                       "pts=%.9f dts=%.9f key=%d eof=%d packet=%d.\n",
+                       ds->index, stream_type_name(ds->type), ds->eager,
+                       ds->initial_ts, dp ? dp->pts : MP_NOPTS_VALUE,
+                       dp ? dp->dts : MP_NOPTS_VALUE, dp && dp->keyframe,
+                       ds->eof, !!dp);
+        }
+    } else {
+        MP_VERBOSE(in, "Retained beginning verified (id=%p, bytes=%zu).\n",
+                   (void *)in, in->total_bytes);
+    }
+    if (in->wakeup_cb)
+        in->wakeup_cb(in->wakeup_cb_ctx);
+}
+
 // Make demuxing progress. Return whether progress was made.
 static bool thread_work(struct demux_internal *in)
 {
     struct demux_opts *opts = in->d_user->opts;
     size_t old_max_bytes = opts->max_bytes;
     size_t old_max_bytes_bw = opts->max_bytes_bw;
-    if (m_config_cache_update(in->d_user->opts_cache)) {
+    bool opts_changed = m_config_cache_update(in->d_user->opts_cache);
+    if (in->prefetch_rewind) {
+        execute_prefetch_rewind(in);
+        return true;
+    }
+    if (opts_changed) {
         update_opts(in->d_user);
         if (opts->max_bytes + opts->max_bytes_bw < old_max_bytes + old_max_bytes_bw)
             demux_packet_pool_clear(in->packet_pool);
+    }
+    if (in->prefetch_verifying) {
+        verify_prefetch_beginning(in);
     }
     if (in->tracks_switched) {
         execute_trackswitch(in);
@@ -3635,6 +3811,7 @@ static struct demuxer *open_given_type(struct mpv_global *global,
         .trace_stream = stream,
         .can_cache = params && params->is_top_level,
         .can_record = params && params->stream_record,
+        .regular_file = stream && stream->is_local_fs && stream->is_regular,
         .d_thread = talloc(demuxer, struct demuxer),
         .d_user = demuxer,
         .after_seek = true, // (assumed identical to initial demuxer state)
@@ -3851,13 +4028,8 @@ struct demuxer *demux_open_url(const char *url,
     return d;
 }
 
-// clear the packet queues
-void demux_flush(demuxer_t *demuxer)
+static void flush_locked(struct demux_internal *in)
 {
-    struct demux_internal *in = demuxer->in;
-    mp_assert(demuxer == in->d_user);
-
-    mp_mutex_lock(&in->lock);
     clear_reader_state(in, true);
     for (int n = 0; n < in->num_ranges; n++)
         clear_cached_range(in, in->ranges[n]);
@@ -3869,6 +4041,16 @@ void demux_flush(demuxer_t *demuxer)
     }
     in->eof = false;
     in->seeking = false;
+}
+
+// clear the packet queues
+void demux_flush(demuxer_t *demuxer)
+{
+    struct demux_internal *in = demuxer->in;
+    mp_assert(demuxer == in->d_user);
+
+    mp_mutex_lock(&in->lock);
+    flush_locked(in);
     mp_mutex_unlock(&in->lock);
 }
 
