@@ -191,6 +191,13 @@ if get_option('libmpv')
     exe = executable('libmpv-test-prefetch', 'libmpv_test_prefetch.c',
                      include_directories: incdir, dependencies: libmpv_dep)
     test('libmpv-test-prefetch', exe, args: file, suite: 'libmpv')
+
+    exe = executable('libmpv-test-playlist-dispatch', 'libmpv_test_playlist_dispatch.c',
+                     include_directories: incdir, dependencies: libmpv_dep,
+                     link_with: test_utils)
+    foreach mode : ['sync', 'async', 'disable']
+        test('libmpv-test-playlist-dispatch-' + mode, exe, args: mode, suite: 'libmpv')
+    endforeach
 endif
 
 # Supported libavutil versions that work with these tests.

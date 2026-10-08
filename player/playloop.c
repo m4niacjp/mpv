@@ -765,10 +765,19 @@ static void handle_update_cache(struct MPContext *mpctx)
         return;
     }
 
-    if (opts->prefetch_open)
+    if (opts->prefetch_open && !mpctx->prefetch_running &&
+        !mpctx->prefetch_canceling)
+    {
         update_prefetch_state(mpctx);
-    if (opts->prefetch_open_realtime)
+    }
+    if (!mpctx->prefetch_running && !mpctx->prefetch_canceling &&
+        (opts->prefetch_open_realtime || mpctx->prefetch_requested))
+    {
+        // Clear first: retirement can process commands through mp_idle(),
+        // and any request made there must survive this update.
+        mpctx->prefetch_requested = false;
         prefetch_next(mpctx);
+    }
 
     double now = mp_time_sec();
 

@@ -483,6 +483,8 @@ typedef struct MPContext {
     struct retired_demux *retired_demuxers;
     int num_retired_demuxers;
     bool prefetch_canceling;
+    bool prefetch_running;
+    bool prefetch_requested; // process playlist changes outside dispatch callbacks
     struct subfn *prefetched_external_files;
     bool demuxer_changed;
     bool prefetch_changed;
@@ -584,6 +586,7 @@ void autoload_external_files(struct MPContext *mpctx, struct mp_cancel *cancel);
 struct track *select_default_track(struct MPContext *mpctx, int order,
                                    enum stream_type type);
 void prefetch_next(struct MPContext *mpctx);
+void request_prefetch_next(struct MPContext *mpctx);
 void cancel_render_prefetch(struct MPContext *mpctx);
 void update_prefetch_state(struct MPContext *mpctx);
 bool is_prefetch_active(struct MPContext *mpctx);

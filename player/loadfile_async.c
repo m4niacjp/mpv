@@ -1017,7 +1017,15 @@ static void prefetch_render(struct MPContext *mpctx)
     vo_control_async(mpctx->video_out, VOCTRL_RENDER_WARMUP, r);
 }
 
-void prefetch_next(struct MPContext *mpctx)
+void request_prefetch_next(struct MPContext *mpctx)
+{
+    // Retirement can wait via mp_idle(), which must not run from a dispatch
+    // callback or a client holding the core lock. Let the playloop do it.
+    mpctx->prefetch_requested = true;
+    mp_wakeup_core(mpctx);
+}
+
+static void do_prefetch_next(struct MPContext *mpctx)
 {
     if (mpctx->prefetch_canceling)
         return;
@@ -1061,10 +1069,22 @@ void prefetch_next(struct MPContext *mpctx)
     }
     update_prefetch_state(mpctx);
     drop_stale_prefetches(mpctx);
+    // Retirement can yield to commands which invalidate the options or stop
+    // playback. Reconcile again before submitting work from this old pass.
+    if (mpctx->demuxer_changed || mpctx->prefetch_changed ||
+        !mpctx->opts->prefetch_open || mpctx->stop_play)
+    {
+        mpctx->prefetch_requested = true;
+        return;
+    }
     prefetch_render(mpctx);
     reap_demuxers(mpctx);
-    if (mpctx->num_retired_demuxers >= MAX_RETIRED_DEMUXERS - 1)
+    if (mpctx->num_retired_demuxers >= MAX_RETIRED_DEMUXERS - 1) {
+        // Completion wakes the core. Keep the request until an opener can
+        // be admitted, including when realtime prefetch is disabled.
+        mpctx->prefetch_requested = true;
         return;
+    }
     if (mpctx->open)
         return;
 
@@ -1090,5 +1110,19 @@ void prefetch_next(struct MPContext *mpctx)
             return;
         }
         entry = playlist_entry_get_next_cyclic(mpctx->playlist, entry, loop);
+    }
+}
+
+void prefetch_next(struct MPContext *mpctx)
+{
+    if (mpctx->prefetch_running || mpctx->prefetch_canceling)
+        return;
+    mpctx->prefetch_running = true;
+    do_prefetch_next(mpctx);
+    mpctx->prefetch_running = false;
+    if (mpctx->prefetch_requested &&
+        mpctx->num_retired_demuxers < MAX_RETIRED_DEMUXERS - 1)
+    {
+        mp_wakeup_core(mpctx);
     }
 }
