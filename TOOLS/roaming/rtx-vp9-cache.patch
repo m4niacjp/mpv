@@ -1,0 +1,87 @@
+--- a/mpv.conf
++++ b/mpv.conf
+@@ -53,6 +53,7 @@
+ # Decoded frames kept so repeated frame-back-step does not re-decode from the
+ # previous keyframe (8K AV1: ~1.4 s per press without it). Each frame is a GPU
+ # surface; 32 frames is ~3 GB at 8K.
++# rtx-video-auto.lua caps this at 16 for D3D11 VP9 to avoid RTX HDR corruption.
+ backstep-cache=32
+ #hr-seek=default
+ #hr-seek-framedrop=yes
+--- a/scripts/rtx-video-auto.lua
++++ b/scripts/rtx-video-auto.lua
+@@ -363,6 +363,15 @@
+
+ -- Before reinit_video_chain / first vo_queue_frame. Do not defer().
+ mp.add_hook("on_loaded", 50, function()
++    -- The larger D3D11 pool from a 32-frame backstep cache corrupts VP9 with
++    -- RTX HDR on this GPU. Set the file-local limit before decoder creation;
++    -- auto profiles observing video-format run too late. Other files restore
++    -- the configured cache size, and smaller user limits remain unchanged.
++    if mp.get_property("current-tracks/video/codec") == "vp9"
++        and mp.get_property("hwdec") == "d3d11va"
++        and mp.get_property_number("backstep-cache", 0) > 16 then
++        mp.set_property_number("file-local-options/backstep-cache", 16)
++    end
+     pip_vsr_scale_cache = nil
+     update_filter(true)
+ end)
+--- a/tests/quick-menu-rtx-hdr-regression.lua
++++ b/tests/quick-menu-rtx-hdr-regression.lua
+@@ -623,6 +623,31 @@
+ end
+ check(warned, "rejected tag: no warning mentioning max-luma was logged")
+
++-- VP9 workaround must run before decoder initialization and remain file-local.
++-- Preserve smaller/disabled caches and the large cache used by other codecs.
++for _, case in ipairs({
++    { "vp9", "d3d11va", 32, 16 },
++    { "vp9", "d3d11va", 16 },
++    { "vp9", "d3d11va", 8 },
++    { "vp9", "d3d11va", 0 },
++    { "av1", "d3d11va", 32 },
++    { "h264", "d3d11va", 32 },
++    { "vp9", "d3d11va-copy", 32 },
++    { "vp9", "no", 32 },
++}) do
++    local h = new_rtx_harness(nil)
++    h.props["current-tracks/video/codec"] = case[1]
++    h.props["hwdec"] = case[2]
++    h.props["backstep-cache"] = case[3]
++    h.hooks["on_loaded"]()
++    local name = table.concat({case[1], case[2], case[3]}, "/")
++    check(h.props["file-local-options/backstep-cache"] == case[4],
++          name .. ": unexpected file-local cache limit")
++    check(h.props["backstep-cache"] == case[3],
++          name .. ": changed the global cache size")
++    check(has_true_hdr(h), name .. ": workaround disabled RTX HDR")
++end
++
+ -- ============================================================
+
+ if failures == 0 then
+--- a/Docs/Reference/RTX_VIDEO.md
++++ b/Docs/Reference/RTX_VIDEO.md
+@@ -124,6 +124,22 @@
+
+ ## Limitations
+
++- **VP9 decoder pool workaround (2026-10-08):** On this RTX 5070 Ti setup,
++  the portrait VP9 sample `DeH3GECqmsr` becomes dark and block-corrupted with
++  RTX HDR and a 50-surface D3D11 decoder pool (`backstep-cache=32`,
++  `hwdec-extra-frames=6`). Both plain D3D11 decoding and VPP without HDR are
++  clean. Reproducing with `backstep-cache=0` and `hwdec-extra-frames=38`
++  isolates the enlarged pool rather than stored backward frames. The
++  `on_loaded` hook in `rtx-video-auto.lua` caps the file-local backstep cache
++  at 16 for VP9 with `hwdec=d3d11va` (34 surfaces with the current settings),
++  retaining hardware decoding and RTX HDR. It runs before decoder creation;
++  automatic profiles observing `video-format` apply too late. Smaller user
++  limits are preserved, and mpv restores the configured size at file end.
++  This also fixes the VP9 sample `DeM1DA0RNTM`. This is a local workaround; the
++  underlying driver/filter defect and its exact surface limit are unconfirmed.
++  Verified with full playback of `DeM1DA0RNTM`, clean captures at 2/6/10/13
++  seconds, three backward-frame steps, and a VP9/H.264/VP9 transition restoring
++  cache sizes 16/32/16. All three Roaming Lua regression harnesses pass.
+ - **D3D11 Only:** Does not work with Vulkan or OpenGL APIs.
+ - **Hardware Decoding:** Prefer `hwdec=d3d11va`. `d3d11vpp` requests D3D11 surfaces; the `-copy` path downloads every frame to RAM. Keep `d3d11va-copy` only if zero-copy + VPP fails on the GPU.
+ - **Single Instance:** Only one instance of the RTX Video filter is managed.

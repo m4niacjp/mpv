@@ -235,6 +235,22 @@ version them separately, and include them in compatibility testing when an
 upstream import changes options, Lua events, playlist commands, or prefetch
 behavior.
 
+The VP9/RTX HDR decoder-pool workaround is preserved as
+[`TOOLS/roaming/rtx-vp9-cache.patch`](../TOOLS/roaming/rtx-vp9-cache.patch).
+It contains only the local runtime change, its regression cases, and notes;
+it is not loaded by mpv from this checkout. The live Roaming copy is already
+patched. To verify that copy, run from the Roaming directory:
+
+```powershell
+git apply --reverse --check C:\Users\andre\Projects\mpv\TOOLS\roaming\rtx-vp9-cache.patch
+```
+
+For an unpatched matching configuration, back up the four affected files,
+run `git apply --check` without `--reverse`, then `git apply` with that path.
+Restart mpv and run the Roaming harnesses. The workaround caps the file-local
+backstep cache at 16 before D3D11 VP9 decoder creation; other codecs retain
+their configured limit. RTX HDR and hardware decoding remain enabled.
+
 ### Roaming workstream
 
 Treat that tree as a second workstream, not as incidental configuration. It
