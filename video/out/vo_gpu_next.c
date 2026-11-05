@@ -3283,7 +3283,7 @@ bool gpu_next_warmup_render(struct render_warmup_request *r, pl_log log,
     }
     const struct pl_frame *frames[] = {&image};
     uint64_t signature = 1;
-    float timestamp = 0;
+    double timestamp = 0;
     struct pl_frame_mix mix = {
         .num_frames = 1, .frames = frames,
         .signatures = &signature, .timestamps = &timestamp,
