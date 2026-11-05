@@ -478,3 +478,50 @@ those results do not describe the current UCRT64 build.
 - Pre-commit passes on the four local changed files. The all-files run
   found pre-existing benchmark EOF/line-ending and spelling issues; its
   unrelated automatic edits were reverted. No checks were weakened.
+
+### Upstream integration verified 2026-11-05
+
+- Imported 344 upstream commits from `36abaa32d0` through `3138fc8eea`,
+  including release 0.42.0, on a staging branch. Reviewed local overlapping
+  playback, playlist, demux, Windows path, and D3D11 changes independently.
+  Conflict resolutions preserve local demux eligibility/tracing, asynchronous
+  autocreate documentation, the prefetched property, RTX output allocation
+  ordering, and private render warmup. Upstream's mapped-frame option reset
+  remains in the shared render-option preparation function.
+- The required libplacebo API increased from 360 to 387. The installed MSYS2
+  package remains unchanged. Built libplacebo 7.387.0 from official commit
+  `63fdd7db4d07959c22cd7788c29e28926bdd8d6f` with D3D11, Vulkan and OpenGL,
+  installed locally under `.git/local-deps/prefix`, and configured mpv with
+  `--pkg-config-path=C:/Users/andre/Projects/mpv/.git/local-deps/prefix/lib/pkgconfig`.
+  Keep this prefix when reconfiguring this build. Its source/build is under
+  `.git/local-deps/libplacebo`. The warmup mix timestamp now uses `double`
+  to match API 387. Vulkan headers 1.4.357 satisfy the new 1.4.309 minimum.
+- Full Meson suite: 48 of 49 pass, including prefetch, rolling history with
+  and without audio, render warmup, Windows paths, AES-CTR and new SDH cases.
+  The sole failure is the baseline external ggml 0.25.3 shutdown assertion
+  documented above; the pre-import binaries independently passed 43 of 44.
+  Run tests with fixture generation enabled; `--no-rebuild` alone does not
+  create the new SDH MKVs. No tests were weakened or excluded.
+- UCRT64 enabled features match the previous build. Runtime versions are
+  FFmpeg 9.0.2 and libplacebo 7.387.0. Backed up the previous executable and
+  refreshed/verified all 121 non-system DLL dependencies in `dist/`; kept
+  `mpv_bck.exe` and the console-wrapper arrangement intact. Deployed version,
+  decode, and live-option parsing probes passed. The live script-directory
+  probe still reports the unrelated existing `scripts/__pycache__` entry.
+- Two deployed real-config `X:\XXX\Best` runs each completed seven first
+  frames and six playlist-next commands, exited normally, and used D3D11
+  hardware decoding with gpu-next. Prefetched demuxer adoption was observed.
+  First-run command-to-frame times were 0.055, 0.100, 0.021, 10.524, 0.368
+  and 1.740 seconds; its shutdown trace includes an 11.5-second filesystem
+  read. A subsequent run also passed. These are smoke checks with uncontrolled
+  VFS/OS cache and script-selected ordering, not a matched performance test
+  or proof of cold-cache latency. First-run process CPU was 4.22 seconds
+  over 19.15 seconds, with 76.6 MB read; concurrent system CPU averaged 3.48%
+  and disk reads 4.43 MiB/s. Raw evidence is in ignored
+  `measurements/upstream-20261105-live-mount*` directories.
+- A separate two-entry D3D11 probe with `d3d11vpp=scale=1.1:nvidia-true-hdr=yes`
+  and `hdr-reference-white=auto` produced 1408x792 HDR-tagged output and
+  completed private hardware-frame import/render warmup (`rendered=1`,
+  `stale=0`, worker priority verified). Evidence is in ignored
+  `measurements/upstream-20261105-rtx-warmup`. Visual HDR appearance and
+  physical display scanout were not assessed.
