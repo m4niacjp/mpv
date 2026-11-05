@@ -108,6 +108,9 @@ struct track {
     // Currently used for decoding.
     bool selected;
 
+    // Decoder initialization failed.
+    bool dec_failed;
+
     // The type specific ID, also called aid (audio), sid (subs), vid (video).
     // For UI purposes only; this ID doesn't have anything to do with any
     // IDs coming from demuxers or container files.
@@ -525,6 +528,8 @@ struct mp_abort_entry {
 void reset_audio_state(struct MPContext *mpctx);
 void reinit_audio_chain(struct MPContext *mpctx);
 int init_audio_decoder(struct MPContext *mpctx, struct track *track);
+void uninit_audio_decoder(struct MPContext *mpctx);
+void reinit_audio_decoder(struct MPContext *mpctx);
 int reinit_audio_filters(struct MPContext *mpctx);
 double playing_audio_pts(struct MPContext *mpctx);
 void fill_audio_out_buffers(struct MPContext *mpctx);
@@ -718,6 +723,8 @@ void reset_video_state(struct MPContext *mpctx);
 void backstep_cache_clear(struct MPContext *mpctx);
 bool backstep_cache_step(struct MPContext *mpctx, int dir);
 int init_video_decoder(struct MPContext *mpctx, struct track *track);
+void uninit_video_decoder(struct MPContext *mpctx);
+void reinit_video_decoder(struct MPContext *mpctx);
 void reinit_video_chain(struct MPContext *mpctx);
 void reinit_video_chain_src(struct MPContext *mpctx, struct track *track);
 int reinit_video_filters(struct MPContext *mpctx);

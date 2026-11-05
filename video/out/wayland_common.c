@@ -1906,7 +1906,9 @@ static void apply_toplevel_config(struct vo_wayland_state *wl)
                                    opts->autofit_larger.wh_valid || opts->autofit_smaller.wh_valid;
         if (width && height && !autofit_or_geometry) {
             wl->initial_size_hint = true;
-            wl->window_size = (struct mp_rect){0, 0, width, height};
+            wl->window_size = (struct mp_rect){0, 0,
+                handle_round(wl->scaling, width), handle_round(wl->scaling, height)
+            };
             wl->geometry = wl->window_size;
         } else {
             wl->override_surface_local = true;
@@ -3692,14 +3694,12 @@ static void set_color_management(struct vo_wayland_state *wl, struct pl_color_sp
         goto nosupport;
 
     struct wp_image_description_v1 *image_description;
-#if PL_API_VER >= 362
     // scRGB has dedicated creator, and not using the generic one.
     if (color->transfer == PL_COLOR_TRC_SCRGB && wl->supports_scrgb) {
         image_description = wp_color_manager_v1_create_windows_scrgb(wl->color_manager);
         cm_dispatch_color_queue(wl, image_description);
         return;
     }
-#endif
 
     int primaries = wl->primaries_map[color->primaries];
     int transfer = wl->transfer_map[color->transfer];
@@ -3948,12 +3948,22 @@ static int set_cursor_visibility_all_seats(struct vo_wayland_state *wl, bool on)
 static void set_geometry(struct vo_wayland_state *wl, bool resize)
 {
     struct vo *vo = wl->vo;
+    struct mp_vo_opts *opts = wl->opts;
     if (!wl->current_output)
         return;
 
+    bool autofit_or_geometry = opts->geometry.wh_valid || opts->autofit.wh_valid ||
+                               opts->autofit_larger.wh_valid || opts->autofit_smaller.wh_valid;
     struct vo_win_geometry geo;
     struct mp_rect screenrc = wl->current_output->geometry;
-    vo_calc_window_geometry(vo, wl->opts, &screenrc, &screenrc, wl->scaling_factor, false, &geo, NULL);
+    struct m_geometry bounds = {
+        .w = wl->bounded_width,
+        .h = wl->bounded_height,
+        .wh_valid = opts->wl_configure_bounds == 1 ||
+            (opts->wl_configure_bounds == -1 && !autofit_or_geometry),
+    };
+    vo_calc_window_geometry(vo, opts, &screenrc, &screenrc, wl->scaling_factor,
+                            false, &geo, &bounds);
     vo_apply_window_geometry(vo, &geo);
 
     int gcd = mp_gcd(vo->dwidth, vo->dheight);
@@ -4015,25 +4025,6 @@ static void set_surface_scaling(struct vo_wayland_state *wl)
     wl->scaling_factor = wl->scaling / WAYLAND_SCALE_FACTOR;
     rescale_geometry(wl, old_scale);
     wl->pending_vo_events |= VO_EVENT_DPI;
-}
-
-static void set_window_bounds(struct vo_wayland_state *wl)
-{
-    // If the user has set geometry/autofit and the option is auto,
-    // don't use these.
-    if (wl->opts->wl_configure_bounds == -1 && (wl->opts->geometry.wh_valid ||
-        wl->opts->autofit.wh_valid || wl->opts->autofit_larger.wh_valid ||
-        wl->opts->autofit_smaller.wh_valid))
-    {
-        return;
-    }
-
-    apply_keepaspect(wl, &wl->bounded_width, &wl->bounded_height);
-
-    if (wl->bounded_width && wl->bounded_width < wl->window_size.x1)
-        wl->window_size.x1 = wl->bounded_width;
-    if (wl->bounded_height && wl->bounded_height < wl->window_size.y1)
-        wl->window_size.y1 = wl->bounded_height;
 }
 
 static bool single_output_spanned(struct vo_wayland_state *wl)
@@ -4781,9 +4772,6 @@ bool vo_wayland_reconfig(struct vo *vo)
 
     if (wl->geometry_configured && wl->opts->auto_window_resize)
         wl->reconfigured = true;
-
-    if (wl->opts->wl_configure_bounds)
-        set_window_bounds(wl);
 
     if (wl->opts->cursor_passthrough)
         set_input_region(wl, true);

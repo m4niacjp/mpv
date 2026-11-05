@@ -1,4 +1,4 @@
-make `--autocreate-playlist` only activate for regular files
+open regular files before scanning siblings with `--autocreate-playlist`
 
 `--autocreate-playlist=filter|same` opens the requested local file immediately
 and inserts sibling playlist entries in the background. Directory listing no

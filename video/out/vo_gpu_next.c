@@ -72,6 +72,7 @@ struct osd_entry {
     pl_tex tex;
     struct pl_overlay_part *parts;
     int num_parts;
+    int change_id;
 };
 
 struct osd_state {
@@ -160,6 +161,8 @@ struct priv {
     bool flush_cache;
     bool frame_pending;
     bool paused;
+    int last_ref_white;
+    int last_srgb_power22;
 
     pl_options pars;
     struct m_config_cache *opts_cache;
@@ -202,6 +205,7 @@ static void cancel_warmup(struct priv *p)
 }
 
 struct gl_next_opts {
+    struct pl_tone_map_constants tone_constants;
     bool delayed_peak;
     int sub_hdr_peak;
     int image_subs_hdr_peak;
@@ -229,6 +233,17 @@ const struct m_opt_choice_alternatives lut_types[] = {
 #define OPT_BASE_STRUCT struct gl_next_opts
 const struct m_sub_options gl_next_conf = {
     .opts = (const struct m_option[]) {
+        {"tone-mapping-knee-adaptation", OPT_FLOAT(tone_constants.knee_adaptation), M_RANGE(0, 1)},
+        {"tone-mapping-knee-minimum", OPT_FLOAT(tone_constants.knee_minimum), M_RANGE(0, 0.5)},
+        {"tone-mapping-knee-maximum", OPT_FLOAT(tone_constants.knee_maximum), M_RANGE(0.5, 1)},
+        {"tone-mapping-knee-default", OPT_FLOAT(tone_constants.knee_default), M_RANGE(0, 1)},
+        {"tone-mapping-knee-offset", OPT_FLOAT(tone_constants.knee_offset), M_RANGE(0.5, 2)},
+        {"tone-mapping-slope-tuning", OPT_FLOAT(tone_constants.slope_tuning), M_RANGE(0, 10)},
+        {"tone-mapping-slope-offset", OPT_FLOAT(tone_constants.slope_offset), M_RANGE(0, 1)},
+        {"tone-mapping-spline-contrast", OPT_FLOAT(tone_constants.spline_contrast), M_RANGE(0, 1.5)},
+        {"tone-mapping-reinhard-contrast", OPT_FLOAT(tone_constants.reinhard_contrast), M_RANGE(0, 1)},
+        {"tone-mapping-linear-knee", OPT_FLOAT(tone_constants.linear_knee), M_RANGE(0, 1)},
+        {"tone-mapping-exposure", OPT_FLOAT(tone_constants.exposure), M_RANGE(0, 10)},
         {"sub-hdr-peak", OPT_CHOICE(sub_hdr_peak, {"auto", 0}, {"sdr", PL_COLOR_SDR_WHITE}),
             M_RANGE(10, 10000)},
         {"image-subs-hdr-peak", OPT_CHOICE(image_subs_hdr_peak, {"sdr", PL_COLOR_SDR_WHITE},
@@ -255,6 +270,7 @@ const struct m_sub_options gl_next_conf = {
         {0},
     },
     .defaults = &(struct gl_next_opts) {
+        .tone_constants = { PL_TONE_MAP_CONSTANTS },
         .border_background = BACKGROUND_COLOR,
         .background_blur_radius = 16.0f,
         .inter_preserve = true,
@@ -344,19 +360,31 @@ static bool upload_overlay_tex(struct vo *vo, struct osd_entry *entry,
                                const struct sub_bitmaps *item)
 {
     struct priv *p = vo->priv;
+    pl_fmt tex_fmt = p->osd_fmt[item->format];
     if (!entry->tex)
         MP_TARRAY_POP(p->sub_tex, p->num_sub_tex, &entry->tex);
-    bool ok = pl_tex_recreate(p->gpu, &entry->tex, &(struct pl_tex_params) {
-        .format = p->osd_fmt[item->format],
-        .w = MPMAX(item->packed_w, entry->tex ? entry->tex->params.w : 0),
-        .h = MPMAX(item->packed_h, entry->tex ? entry->tex->params.h : 0),
-        .host_writable = true,
-        .sampleable = true,
-    });
-    if (!ok) {
-        MP_ERR(vo, "Failed recreating OSD texture!\n");
-        return false;
+    // pl_tex_recreate() invalidates the texture even when it keeps it, so
+    // only call it when the size or format has to change. Textures only
+    // ever grow, so a size mismatch means the texture is too small.
+    pl_tex tex = entry->tex;
+    if (!tex || tex->params.w < item->packed_w ||
+        tex->params.h < item->packed_h || tex->params.format != tex_fmt)
+    {
+        entry->change_id = 0;
+        bool ok = pl_tex_recreate(p->gpu, &entry->tex, &(struct pl_tex_params) {
+            .format = tex_fmt,
+            .w = MPMAX(item->packed_w, tex ? tex->params.w : 0),
+            .h = MPMAX(item->packed_h, tex ? tex->params.h : 0),
+            .host_writable = true,
+            .sampleable = true,
+        });
+        if (!ok) {
+            MP_ERR(vo, "Failed recreating OSD texture!\n");
+            return false;
+        }
     }
+    if (entry->change_id == item->change_id)
+        return true;
     struct pl_tex_transfer_params upload_params = {
         .tex        = entry->tex,
         .rc         = { .x1 = item->packed_w, .y1 = item->packed_h, },
@@ -371,8 +399,10 @@ static bool upload_overlay_tex(struct vo *vo, struct osd_entry *entry,
     if (!pl_tex_upload(p->gpu, &upload_params)) {
         MP_ERR(vo, "Failed uploading OSD texture!\n");
         talloc_free(upload_params.priv);
+        entry->change_id = 0;
         return false;
     }
+    entry->change_id = item->change_id;
     return true;
 }
 
@@ -872,7 +902,6 @@ static void hwdec_release(pl_gpu gpu, struct pl_frame *frame)
     slot_release(&p->hwdec);
 }
 
-#if PL_API_VER >= 367
 static bool hwdec_acquire_el(pl_gpu gpu, struct pl_frame *frame)
 {
     struct mp_image *bl_mpi = frame->user_data;
@@ -891,7 +920,6 @@ static void hwdec_release_el(pl_gpu gpu, struct pl_frame *frame)
     struct priv *p = fp->vo->priv;
     slot_release(&p->el_hwdec);
 }
-#endif
 
 static bool format_supported(struct vo *vo, int format, bool use_uint)
 {
@@ -917,15 +945,10 @@ static float get_ref_luma(struct priv *p)
     if (opts->hdr_reference_white)
         return opts->hdr_reference_white;
 
-#if PL_API_VER >= 371
     // auto: follow the system reference white, if available
-    // Use auto mode only on libplacebo >= 371, to avoid luminance mismatches,
-    // on SDR->SDR in some corner cases. User override is still respected, to
-    // preserve previous behavior.
     struct ra_swapchain *sw = p->ra_ctx->swapchain;
     if (sw->fns->target_ref_luma)
         return sw->fns->target_ref_luma(sw);
-#endif
 
     return 0;
 }
@@ -934,10 +957,8 @@ static bool use_ref_luma(const struct pl_color_space *csp, const struct pl_color
 {
     if (!pl_color_transfer_is_hdr(csp->transfer))
         return true;
-#if PL_API_VER >= 362
     if (csp->transfer == PL_COLOR_TRC_SCRGB && target_csp && !pl_color_transfer_is_hdr(target_csp->transfer))
         return true;
-#endif
     return false;
 }
 
@@ -1070,7 +1091,6 @@ static bool map_frame(pl_gpu gpu, pl_tex *tex, const struct pl_source_frame *src
     // Update chroma location, must be done after initializing planes
     pl_frame_set_chroma_location(frame, par.chroma_location);
 
-#if PL_API_VER >= 367
     if (mpi->enhancement_layer) {
         struct mp_image *el = mpi->enhancement_layer;
         fp->el_hwdec = ra_hwdec_get(&p->hwdec_ctx, el->imgfmt);
@@ -1110,7 +1130,6 @@ static bool map_frame(pl_gpu gpu, pl_tex *tex, const struct pl_source_frame *src
                     "rendering base layer only.\n");
         }
     }
-#endif
 
     if (mpi->film_grain)
         pl_film_grain_from_av(&frame->film_grain, (AVFilmGrainParams *) mpi->film_grain->data);
@@ -1265,11 +1284,9 @@ static void apply_target_options(struct priv *p, struct pl_frame *target,
         struct ra_swapchain *sw = p->ra_ctx->swapchain;
         dither_depth = sw->fns->color_depth ? sw->fns->color_depth(sw) : 0;
     }
-#if PL_API_VER >= 362
     // Don't dither scRGB, assume downstream will handle quantization properly.
     if (target->color.transfer == PL_COLOR_TRC_SCRGB)
         dither_depth = -1;
-#endif
     if (dither_depth > 0) {
         struct pl_bit_encoding *tbits = &target->repr.bits;
         tbits->color_depth += dither_depth - tbits->sample_depth;
@@ -1532,6 +1549,7 @@ static bool draw_frame(struct vo *vo, struct vo_frame *frame)
         // sets target_trc to PQ, but the hint(source) is SDR, we want to fill
         // in SDR luminance values instead of the default PQ range.
         struct pl_color_space source_csp = *source;
+        bool min_luma_known = hint.hdr.min_luma > 0;
         pl_color_space_infer_map(&source_csp, &hint);
         // Always prefer target luminance and transfer for inverse tone mapping
         if (pl_color_transfer_is_hdr(target->transfer) && opts->tone_map.inverse) {
@@ -1551,6 +1569,11 @@ static bool draw_frame(struct vo *vo, struct vo_frame *frame)
             hint.hdr.max_luma = opts->target_peak;
         if (target_ref_luma && use_ref_luma(&hint, &target_csp))
             hint.hdr.max_luma = target_ref_luma;
+        // The SDR black point was inferred from the peak known before the
+        // overrides above, keep the assumed contrast relative to the final
+        // peak instead of the one it was inferred from.
+        if (!min_luma_known && !pl_color_transfer_is_hdr(hint.transfer))
+            hint.hdr.min_luma = hint.hdr.max_luma / PL_COLOR_SDR_CONTRAST;
         // Always set maxCLL, display uses this metadata and we shouldn't let it
         // fallback to default value.
         if (!hint.hdr.max_cll)
@@ -1617,9 +1640,7 @@ static bool draw_frame(struct vo *vo, struct vo_frame *frame)
     apply_target_options(p, &target, hint.hdr.min_luma, strict_sw_params,
                          target_ref_luma, &target_csp);
     bool clip_gamut = pl_primaries_valid(&target.color.hdr.prim);
-#if PL_API_VER >= 362
     clip_gamut = clip_gamut && target.color.transfer != PL_COLOR_TRC_SCRGB;
-#endif
     if (clip_gamut) {
         // Ensure resulting gamut still fits inside container
         target.color.hdr.prim = pl_primaries_clip(&target.color.hdr.prim,
@@ -3009,16 +3030,15 @@ static int prepare_render_options(struct priv *p)
     };
 
     pars->color_map_params.tone_mapping_function = tone_map_funs[opts->tone_map.curve];
-AV_NOWARN_DEPRECATED(
-    pars->color_map_params.tone_mapping_param = opts->tone_map.curve_param;
-    if (isnan(pars->color_map_params.tone_mapping_param)) // vo_gpu compatibility
-        pars->color_map_params.tone_mapping_param = 0.0;
-)
+    pars->color_map_params.tone_constants = p->next_opts->tone_constants;
+
     pars->color_map_params.inverse_tone_mapping = opts->tone_map.inverse;
     pars->color_map_params.contrast_recovery = opts->tone_map.contrast_recovery;
     pars->color_map_params.visualize_lut = opts->tone_map.visualize;
     pars->color_map_params.contrast_smoothness = opts->tone_map.contrast_smoothness;
     pars->color_map_params.gamut_mapping = gamut_modes[opts->tone_map.gamut_mode];
+    pars->color_map_params.mastering_clip = opts->tone_map.mastering_clip;
+    pars->color_map_params.film_strength = opts->tone_map.film_strength;
 
     pars->params.dither_params = NULL;
     pars->params.error_diffusion = NULL;
@@ -3062,6 +3082,12 @@ AV_NOWARN_DEPRECATED(
 
     MP_DBG(p, "Render options updated, flushing renderer cache.\n");
     p->flush_cache = p->paused || !p->next_opts->inter_preserve;
+    // These options are baked into mapped frames. Reset the queue to map the
+    // queued frames again.
+    p->want_reset = p->want_reset || p->last_ref_white != opts->hdr_reference_white;
+    p->want_reset = p->want_reset || ((p->last_srgb_power22 ^ opts->treat_srgb_as_power22) & 1);
+    p->last_ref_white = opts->hdr_reference_white;
+    p->last_srgb_power22 = opts->treat_srgb_as_power22;
     return req_frames;
 }
 
