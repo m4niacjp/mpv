@@ -525,3 +525,33 @@ those results do not describe the current UCRT64 build.
   `stale=0`, worker priority verified). Evidence is in ignored
   `measurements/upstream-20261105-rtx-warmup`. Visual HDR appearance and
   physical display scanout were not assessed.
+
+### Upstream integration verified 2026-11-15
+
+- Imported 92 upstream commits from `3138fc8eea` through `3d73d07e6c` as a
+  merge that preserves fork history. Overlapping paths were `DOCS/man/input.rst`,
+  `DOCS/man/options.rst`, `meson.build`, `misc/path_utils.c`, `player/command.c`,
+  `player/playloop.c`, `stream/stream_file.c`, `test/meson.build`,
+  `video/decode/vd_lavc.c` and `video/out/vo_gpu_next.c`; only `meson.build`
+  (both new source files kept) and `vo_gpu_next.c` conflicted. The rest were
+  small, non-overlapping hunks.
+- Upstream moved the whole libplacebo renderer out of `vo_gpu_next.c` into
+  `video/out/gpu_next/video.c` (`struct mppl_video`). The local private render
+  warmup was ported onto it rather than merged textually: warmup state, target
+  capture, `setup_frame_metadata()`, the `update_dynamic_render_options()`
+  split, cache tracing, the worker-side `gpu_next_warmup_render()` and the
+  cancel/submit logic now live in `video.c` and are driven from
+  `vo_gpu_next.c` through `mppl_video_warmup_cancel/request/submit()`.
+  Upstream's `update_render_options()` no longer touches the VO, so the local
+  `prepare_render_options()` split was dropped. Behavior is intended to be
+  unchanged; the double-precision warmup timestamp is preserved.
+- UCRT64 build (libplacebo 7.387.0 from `.git/local-deps/prefix`, FFmpeg 9.0.2)
+  compiled without warnings. Full Meson suite: 48 of 49 pass, including prefetch,
+  rolling history and render warmup; the sole failure is the baseline external
+  ggml shutdown assertion documented above (`libmpv-lifetime`, `0xc0000409`).
+- Refreshed `dist/mpv.exe` (previous binary kept as `dist/mpv_bck.exe`); all 121
+  runtime DLLs were already identical to the build closure. The deployed binary
+  reports the new version and plays a `gpu-next`/D3D11 lavfi source cleanly.
+- Not performed: a live D3D11 RTX warmup probe, `X:\XXX\Best` mount runs, and
+  Roaming harness runs against the new binary. The ported warmup path is covered
+  by the Meson tests and a basic gpu-next playback smoke test only.
