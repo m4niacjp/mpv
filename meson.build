@@ -272,6 +272,7 @@ sources = files(
     'video/out/vo_gpu_next.c',
     'video/out/gpu_next/context.c',
     'video/out/gpu_next/warmup.c',
+    'video/out/gpu_next/video.c',
 
     ## osdep
     'osdep/io.c',
@@ -530,14 +531,14 @@ if features['win32-desktop']
                           cc.find_library('dwmapi'),
                           cc.find_library('gdi32'),
                           cc.find_library('imm32'),
-                          cc.find_library('ntdll'),
                           cc.find_library('ole32'),
                           cc.find_library('pathcch'),
                           cc.find_library('shcore'),
                           cc.find_library('user32'),
                           cc.find_library('uuid'),
                           cc.find_library('uxtheme'),
-                          cc.find_library('version')]
+                          cc.find_library('version'),
+                          cc.find_library('winmm')]
     dependencies += win32_desktop_libs
     path_source = files('osdep/path-win.c')
     if not get_option('fuzzers')
@@ -1020,7 +1021,7 @@ gbm_opt = get_option('gbm').require(
     features['drm'],
     error_message: 'drm was not found!'
 )
-gbm = dependency('gbm', version: '>= 17.1.0', required: gbm_opt)
+gbm = dependency('gbm', version: '>= 21.3.0', required: gbm_opt)
 features += {'gbm': gbm.found()}
 if features['gbm']
     dependencies += gbm

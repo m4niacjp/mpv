@@ -8848,12 +8848,14 @@ Miscellaneous
 
 ``--metadata-codepage=<codepage>``
     Codepage for various input metadata (default: ``auto``). This affects how
-    file tags, chapter titles, etc. are interpreted. In most cases, this merely
-    evaluates to UTF-8 as non-UTF-8 codepages are obscure.
+    file tags, chapter titles, archive entry names, etc. are interpreted. In
+    most cases, this merely evaluates to UTF-8 as non-UTF-8 codepages are
+    obscure.
 
     See ``--sub-codepage`` option on how codepages are specified and further
     details regarding autodetection and codepage conversion. (The underlying
-    code is the same.)
+    code is the same.) Archive entry names that are valid UTF-8 are never
+    recoded, even with a ``+`` prefix.
 
     Conversion is not applied to metadata that is updated at runtime.
 
@@ -8920,7 +8922,7 @@ Miscellaneous
 
     Registers mpv as a media player on Windows. This includes adding registry
     entries to associate mpv with media files and protocols, as well as enabling
-    autoplay handlers for Blu-ray, DVD, and CD-Audio.
+    autoplay handlers for Blu-ray, DVD, DVD-Audio, and CD-Audio.
 
     Note that the registration is done in-place, so the current mpv.exe path will
     be used. If you move mpv after registering it, you can re-run this command to
@@ -8933,7 +8935,8 @@ Miscellaneous
 
     The list of the file extensions to register, can be controlled with the
     ``--video-exts``, ``--audio-exts``, ``--image-exts``, ``--playlist-exts``
-    and ``--archive-exts`` options.
+    and ``--archive-exts`` options. Disc images (``.iso``) and the ``.ifo``
+    and ``.bdmv`` files of DVD and Blu-ray folders are registered as well.
 
     By default, mpv will be registered for the current user. To register it for
     all users, run mpv as an administrator with this option. However, this is
