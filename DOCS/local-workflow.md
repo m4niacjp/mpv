@@ -552,6 +552,24 @@ those results do not describe the current UCRT64 build.
 - Refreshed `dist/mpv.exe` (previous binary kept as `dist/mpv_bck.exe`); all 121
   runtime DLLs were already identical to the build closure. The deployed binary
   reports the new version and plays a `gpu-next`/D3D11 lavfi source cleanly.
-- Not performed: a live D3D11 RTX warmup probe, `X:\XXX\Best` mount runs, and
-  Roaming harness runs against the new binary. The ported warmup path is covered
-  by the Meson tests and a basic gpu-next playback smoke test only.
+- All four Roaming harnesses (`audio-watchdog`, `playlist-sort`,
+  `quick-menu-rtx-hdr`, `render-detail`) pass against the new build.
+- The 2026-11-05 two-entry D3D11 probe, repeated verbatim on the deployed
+  binary (`d3d11vpp=scale=1.1:nvidia-true-hdr=yes`, `hdr-reference-white=auto`,
+  `MPV_RENDER_WARMUP_TRACE=1`, fresh shader cache), reproduced the earlier
+  result through the ported code: worker priority verified, 1408x792
+  `x2bgr10` hardware frame imported (`imported_planes=1`, `texture_ra=1`),
+  `rendered=1`, `stale=0`, 62 ms worker wall time (56 ms before), no errors.
+  Evidence: ignored `measurements/upstream-20261115-rtx-warmup`.
+- `X:\XXX\Best` (`Invoke-QuickPlaylistTrace.ps1 -HoldSeconds 3
+  -TraceShutdown`, live config): both runs completed 7 first frames and 6/6
+  playlist-next commands with D3D11 hardware decoding and exited normally.
+  Transitions were slower and adopted more still-opening prefetches than on
+  2026-11-05 (up to 4.7 s), and today's first run had a 3.7 s cold first
+  open. An interleaved A/B in the same session found the pre-merge binary
+  (`dist/mpv_bck.exe`) showing the same pattern on the current config, so the
+  difference is attributed to the environment, not the merge: uncontrolled VFS
+  cache, script-selected order, and a live `mpv.conf` change of
+  `prefetch-playlist-cache-secs` from 180 to 300 made before this integration.
+  These are smoke checks, not matched performance measurements. Evidence:
+  ignored `measurements/upstream-20261115-live-mount*` and `-ab-*`.
