@@ -4,7 +4,11 @@ param(
     [Parameter(Mandatory)][string]$Folder,
     [Parameter(Mandatory)][string]$OutDir,
     [ValidateRange(1,60)][int]$HoldSeconds = 10,
-    [switch]$TraceShutdown
+    [switch]$TraceShutdown,
+    # Binary under test; defaults to this checkout's deployed dist\mpv.exe.
+    [string]$Exe = (Join-Path $PSScriptRoot '..\..\dist\mpv.exe'),
+    # Options inserted before the media path (for example an A/B override).
+    [string[]]$ExtraArgs = @()
 )
 $ErrorActionPreference = 'Stop'
 if (Get-Process -Name mpv -ErrorAction SilentlyContinue) { throw 'Close existing mpv before testing.' }
@@ -46,7 +50,8 @@ try {
  $before=AllProcs
  $media=Get-ChildItem -LiteralPath $Folder -File | Where-Object Extension -in '.mkv','.mp4','.webm','.avi','.mov' | Sort-Object Name | Select-Object -First 1
  if (-not $media) { throw "No supported video in $Folder" }
- $exe=Join-Path $PSScriptRoot '..\..\dist\mpv.exe'
+ if (-not (Test-Path -LiteralPath $Exe -PathType Leaf)) { throw "mpv binary not found: $Exe" }
+ $exe=(Resolve-Path -LiteralPath $Exe).Path
  $info=[Diagnostics.ProcessStartInfo]::new($exe)
  $info.UseShellExecute=$false
  if ($TraceShutdown) { $info.Environment['MPV_DEMUX_SHUTDOWN_TRACE']='1' }
@@ -58,8 +63,9 @@ try {
   ('--script='+(Join-Path $PSScriptRoot 'quick-playlist-probe.lua'))
   ('--script-opts-append=quickperf-out='+(Join-Path $runDir 'events.jsonl'))
   ('--script-opts-append=quickperf-hold='+$HoldSeconds)
-  $media.FullName
  )
+ $argsList += $ExtraArgs
+ $argsList += $media.FullName
  foreach($a in $argsList){$info.ArgumentList.Add($a)}
  $startUtc=[DateTime]::UtcNow
  $watch=[Diagnostics.Stopwatch]::StartNew()

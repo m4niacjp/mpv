@@ -196,6 +196,29 @@ On this Windows checkout, finish with the targeted `mpv.exe` / `mpv.com` build,
 copy both files to `dist/`, and run the `--no-config --version` smoke check from
 [AGENTS.md](../AGENTS.md#this-windows-checkout-targeted-build-and-deployment).
 
+Then run the live checks against the deployed binary, keeping the previous
+executable as the baseline:
+
+```powershell
+& .\benchmarks\vfs-bench\Invoke-LiveChecks.ps1 -BaselineExe dist\mpv_bck.exe
+```
+
+It runs every Roaming `tests\*-regression.lua` harness, the two-entry D3D11
+RTX render warmup probe (requires `build\test\samples\video.mkv`, created by
+the Meson suite), and `-MountRuns` (default 2) `Invoke-QuickPlaylistTrace.ps1`
+runs on `X:\XXX\Best` interleaved with the baseline. Gated checks: harness
+exit 0 with a `PASS:` line and no `FAIL:`; a verified warmup worker, an
+imported D3D11 frame, `rendered=1`, `stale=0`, both files at 35 frames and no
+error log lines; the 7-start/6-command protocol, hardware decoding for every
+first frame, and at least one prefetch adoption per candidate mount run.
+Baseline runs, live-config error lines matching `-KnownErrorPattern`, and all
+timings are reported but never gate; mount timing is uncontrolled smoke data.
+Evidence and `summary.md`/`summary.json` go to a new
+`measurements\live-checks-<time>` directory; the script exits 1 when a gated
+check fails. Call it with `&` (or `-Command`), not `pwsh -File`, so
+`-Stages harness,rtx` binds as an array. It needs no elevation, writes nothing
+in Roaming, and clears no cache.
+
 When upstream touches playlist, autocreate, prefetch, stream/demux/cache, or
 Windows filesystem behavior, also exercise the deployed binary against
 `X:\XXX\Best`. Verify initial open and playlist-next latency, demuxer adoption,
@@ -384,6 +407,7 @@ package: `benchmarks\Run-20260912-041416-mpv-vfs-cold-warm\`; session handoff:
 | `Invoke-BenchTrials.ps1` | Matrix driver (conditions including the `config-*-no-playlist-sort` A/B) with `-PlainRepeats`; toggles `playlist-sort.lua` with a hash-guarded restore |
 | `Summarize-BenchTrials.ps1`, `Analyze-ProcmonSwitch.ps1` | Per-trial CSV + per-condition JSON; playlist-next switch window from a Procmon CSV |
 | `bench-probe.lua`, `Measure-Load.ps1`, `VfsBench.psm1` | In-process driver/recorder, preflight load sampling, and shared helpers |
+| `Invoke-LiveChecks.ps1` | Gated post-deployment checks (Roaming harnesses, RTX warmup probe, mount trace A/B); see [step 4](#4-verify-behavior-before-promotion) |
 
 Protocol invariants:
 
@@ -425,7 +449,9 @@ request or storage fault. Diagnostics are disabled when the variable is absent.
 holds the initial video for 10 seconds after the first-frame notification,
 then advances six times immediately after each first frame and quits. The
 output contains process CPU/I/O counters, system samples, raw events/logs and
-protocol verification. `-HoldSeconds` changes the initial hold. No cache is
+protocol verification. `-HoldSeconds` changes the initial hold; `-Exe` selects
+another binary (default `dist\mpv.exe`) and `-ExtraArgs` adds options before
+the media path, for example an A/B override. No cache is
 cleared by this runner; local Windows file-cache state is uncontrolled.
 
 For a cold **rclone VFS** trial, run
